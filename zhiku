@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+zhiku — 随身智库 · AI 组件市场 CLI（零依赖，python3 stdlib）
+
+    zhiku "我要写一篇公众号长文"      # 中文任务匹配（内置中→英领域词映射）
+    zhiku -t mcps "database"          # 限定类型 (skills/agents/commands/mcps/settings/hooks)
+    zhiku -n 20 "video"               # 取 top 20
+    zhiku --json "feishu"             # JSON 输出（给脚本/Agent 消费）
+    zhiku --refresh "..."             # 强制刷新本地缓存
+    zhiku --base http://127.0.0.1:8902/zhiku-api "..."   # 自定义 API base（调试）
+
+数据源: https://h5.odysseyinst.com/zhiku-api/catalog.json (匿名静态 JSON)
+缓存:   ~/.cache/zhiku/catalog.json (TTL 24h)
+安装:   curl -fsSL https://h5.odysseyinst.com/zhiku-skill/zhiku -o /usr/local/bin/zhiku && chmod +x /usr/local/bin/zhiku
+"""
+import json, math, os, re, sys, time, urllib.request
+
+BASE = "https://h5.odysseyinst.com/zhiku-api"
+CACHE = os.path.expanduser("~/.cache/zhiku/catalog.json")
+TTL = 24 * 3600
+TYPES = ("skills", "agents", "commands", "mcps", "settings", "hooks")
+FLAGS = {"skills": "--skill", "agents": "--agent", "commands": "--command",
+         "mcps": "--mcp", "settings": "--setting", "hooks": "--hook"}
+
+# 中→英领域词映射（与网页版 AI 助理同源算法）
+ZH2EN = {
+"视频": ["video", "clip"], "剪辑": ["video", "edit", "clip", "cut"], "剪映": ["capcut", "jianying"],
+"短视频": ["video", "tiktok", "short"], "抖音": ["douyin", "tiktok", "video"],
+"小红书": ["xiaohongshu", "xhs", "rednote", "social"], "微博": ["weibo", "social"], "推特": ["twitter", "social"],
+"公众号": ["wechat", "article", "writing", "content"], "微信": ["wechat"],
+"写作": ["writing", "writer", "article"], "文章": ["article", "writing", "content"],
+"长文": ["article", "writing", "longform"], "文案": ["copywriting", "copy", "marketing"],
+"营销": ["marketing", "growth", "seo"], "推广": ["marketing", "promotion"],
+"飞书": ["feishu", "lark"], "多维表": ["bitable", "lark", "base"],
+"表格": ["spreadsheet", "excel", "sheet", "xlsx"], "文档": ["document", "docx", "doc"],
+"幻灯": ["slides", "pptx", "presentation"], "演示": ["presentation", "slides", "pptx"],
+"简历": ["resume", "cv"], "邮件": ["email", "mail", "gmail"],
+"日历": ["calendar", "schedule"], "日程": ["calendar", "schedule", "planning"],
+"提醒": ["reminder", "notification"], "定时": ["cron", "schedule", "timer"],
+"爬虫": ["scrape", "crawler", "scraping", "spider"], "抓取": ["scrape", "fetch", "crawl", "extract"],
+"浏览器": ["browser", "chrome", "playwright"], "自动化": ["automation", "workflow", "automate"],
+"工作流": ["workflow", "automation", "n8n", "pipeline"], "流程": ["workflow", "process"],
+"数据库": ["database", "sql", "postgres", "sqlite"], "数据分析": ["data", "analysis", "analytics"],
+"可视化": ["visualization", "chart", "dashboard"], "图表": ["chart", "diagram", "graph"],
+"仪表盘": ["dashboard", "cockpit"], "看板": ["dashboard", "kanban", "board"], "报告": ["report", "reporting"],
+"海报": ["poster", "canvas", "design", "image"], "封面": ["cover", "image", "thumbnail"],
+"图片": ["image", "photo", "picture"], "配图": ["image", "illustration"],
+"画图": ["diagram", "drawing", "draw"], "插画": ["illustration", "art", "image"],
+"设计": ["design", "ui", "frontend"], "审美": ["design", "taste", "aesthetic"],
+"前端": ["frontend", "react", "vue", "web", "ui"], "后端": ["backend", "api", "server"],
+"网页": ["web", "html", "page", "website"], "网站": ["website", "web", "site"],
+"落地页": ["landing", "page", "web"], "部署": ["deploy", "deployment", "hosting"],
+"上线": ["deploy", "launch", "release"], "发布": ["release", "publish", "deploy"],
+"测试": ["test", "testing", "qa", "e2e"], "调试": ["debug", "debugging", "troubleshoot"],
+"重构": ["refactor", "refactoring"], "审查": ["review", "audit"], "代码审查": ["code-review", "review"],
+"安全": ["security", "vulnerability", "audit"], "漏洞": ["vulnerability", "security", "exploit"],
+"性能": ["performance", "optimize", "speed"], "优化": ["optimize", "optimization", "performance"],
+"翻译": ["translate", "translation", "i18n"], "多语言": ["i18n", "localization", "translation"],
+"语音": ["speech", "voice", "audio"], "转写": ["transcribe", "transcription", "whisper"],
+"转录": ["transcribe", "transcription", "whisper"], "音频": ["audio", "sound"], "音乐": ["music", "audio"],
+"播客": ["podcast", "audio"], "字幕": ["subtitle", "caption", "srt"], "直播": ["live", "stream", "streaming"],
+"研究": ["research", "analysis"], "调研": ["research", "survey", "investigate"],
+"论文": ["paper", "academic", "research", "arxiv"], "总结": ["summary", "summarize"],
+"摘要": ["summary", "abstract"], "笔记": ["note", "notes", "obsidian"],
+"知识库": ["knowledge", "wiki", "notebook"], "记忆": ["memory", "recall"],
+"提示词": ["prompt", "prompting"], "智能体": ["agent", "agents"],
+"股票": ["stock", "trading", "finance"], "投资": ["investment", "finance", "trading"],
+"财务": ["finance", "financial", "accounting"], "财报": ["financial", "earnings", "report"],
+"量化": ["quant", "trading", "backtest"], "加密货币": ["crypto", "blockchain"], "区块链": ["blockchain", "crypto", "web3"],
+"法律": ["legal", "law", "contract"], "合同": ["contract", "legal"],
+"招聘": ["recruiting", "hiring", "hr"], "面试": ["interview", "hiring"],
+"课程": ["course", "education", "teaching"], "教学": ["teaching", "education", "tutorial"],
+"学习": ["learning", "education", "study"], "游戏": ["game", "gaming"],
+"地图": ["map", "location", "geo"], "天气": ["weather"], "新闻": ["news", "feed"],
+"订阅": ["rss", "subscription", "feed"], "下载": ["download", "fetch"], "上传": ["upload"],
+"备份": ["backup", "sync"], "同步": ["sync", "synchronize"], "监控": ["monitor", "monitoring", "alert"],
+"告警": ["alert", "alerting", "notification"], "通知": ["notification", "notify", "push"],
+"任务管理": ["task", "todo", "project"], "项目管理": ["project", "management", "jira"],
+"文件": ["file", "files"], "整理": ["organize", "cleanup", "tidy"], "重命名": ["rename"],
+"格式化": ["format", "formatting", "lint"], "提交": ["commit", "git"], "分支": ["branch", "git"],
+"合并": ["merge", "git"], "仓库": ["repo", "repository", "github"], "接口": ["api", "endpoint"],
+"文档生成": ["documentation", "docs"], "架构": ["architecture", "diagram", "system"],
+"图标": ["icon", "logo"], "商标": ["logo", "brand"], "品牌": ["brand", "branding"],
+"选品": ["product", "sourcing", "ecommerce"], "电商": ["ecommerce", "shop", "product"],
+"客服": ["support", "customer", "service"], "问卷": ["survey", "form"], "表单": ["form", "input"],
+"密码": ["password", "auth", "credential"], "登录": ["auth", "login", "oauth"], "权限": ["permission", "auth", "access"],
+}
+STOP = re.compile(r"^(我要|我想|想要|帮我|请帮|帮忙|给我|怎么|如何|有没有|哪个|什么|一个|一份|一篇|一条|需要|用来|可以|能不能|做个|做一个|搞个|弄个|请问)")
+
+
+def fetch_catalog(base, refresh):
+    if not refresh and os.path.exists(CACHE) and time.time() - os.path.getmtime(CACHE) < TTL:
+        with open(CACHE, encoding="utf-8") as f:
+            return json.load(f)
+    url = base.rstrip("/") + "/catalog.json"
+    req = urllib.request.Request(url, headers={"User-Agent": "zhiku-cli/0.1"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        data = json.loads(r.read().decode("utf-8"))
+    os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+    with open(CACHE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+    return data
+
+
+def tokenize(q):
+    en = [w for w in re.findall(r"[a-z0-9][a-z0-9_\-.]+", q.lower()) if len(w) >= 2]
+    zh = re.sub(r"[a-zA-Z0-9_\-./]+", " ", q)
+    segs = []
+    for s in re.split(r"[^一-鿿]+", zh):
+        if not s:
+            continue
+        prev = None
+        while prev != s and s:
+            prev, s = s, STOP.sub("", s)
+        if len(s) >= 2:
+            segs.append(s)
+    grams = sorted({s[i:i + 2] for s in segs for i in range(len(s) - 1)})
+    ex = sorted({w for s in segs for k, ws in ZH2EN.items() if k in s for w in ws} - set(en))
+    return en, segs, grams, ex
+
+
+def score_all(q, catalog, only_type=None):
+    en, segs, grams, ex = tokenize(q)
+    res = []
+    for t in TYPES:
+        if only_type and t != only_type:
+            continue
+        for it in catalog.get(t, []):
+            name = (it.get("name") or "").lower()
+            cat = (it.get("category") or "").lower()
+            desc = (it.get("description") or "").lower()
+            sc, hits = 0.0, 0
+            for words, w in ((en, 1), (grams, 1), (segs, 1.5), (ex, 0.8)):
+                for tok in words:
+                    h = (5 if tok in name else 0) + (2 if tok in cat else 0) + (1 if tok in desc else 0)
+                    if h:
+                        sc += h * w
+                        hits += 1
+            if sc <= 0:
+                continue
+            sc += hits * 2
+            if it.get("mine"):
+                sc *= 1.5
+            sc += math.log10((it.get("downloads") or 0) + 1) * 0.3
+            res.append((sc, t, it))
+    res.sort(key=lambda x: -x[0])
+    return res
+
+
+def install_cmd(t, it):
+    p = re.sub(r"\.(md|json)$", "", it.get("path") or it.get("name") or "")
+    return f"npx claude-code-templates@latest {FLAGS[t]} {p} --yes"
+
+
+def main():
+    args = sys.argv[1:]
+    base, only_type, top, as_json, refresh = BASE, None, 10, False, False
+    q = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in ("-t", "--type"):
+            only_type = args[i + 1]; i += 2
+        elif a in ("-n", "--top"):
+            top = int(args[i + 1]); i += 2
+        elif a == "--base":
+            base = args[i + 1]; i += 2
+        elif a == "--json":
+            as_json = True; i += 1
+        elif a == "--refresh":
+            refresh = True; i += 1
+        elif a in ("-h", "--help"):
+            print(__doc__); return
+        else:
+            q.append(a); i += 1
+    if not q:
+        print(__doc__); sys.exit(1)
+    if only_type and only_type not in TYPES:
+        sys.exit(f"未知类型 {only_type}，可选: {'/'.join(TYPES)}")
+    query = " ".join(q)
+    catalog = fetch_catalog(base, refresh)
+    hits = score_all(query, catalog, only_type)[:top]
+    if as_json:
+        print(json.dumps([{"score": round(s, 2), "type": t, "name": it.get("name"),
+                           "category": it.get("category"), "mine": it.get("mine", 0),
+                           "description": it.get("description", ""), "install": install_cmd(t, it)}
+                          for s, t, it in hits], ensure_ascii=False, indent=1))
+        return
+    if not hits:
+        print("没匹配到组件——换个说法试试（中文领域词或英文关键词，如 video / wechat / database）")
+        return
+    built = (catalog.get("_meta") or {}).get("built", "?")
+    print(f"随身智库 · 组件市场 — \"{query}\" top {len(hits)}（数据 {built}）\n")
+    for s, t, it in hits:
+        star = " ★私有(需仓权限)" if it.get("mine") else ""
+        desc = re.sub(r"\s+", " ", it.get("description") or "").strip()[:100]
+        print(f"  {it.get('name')}  〔{t}·{it.get('category','—')}〕{star}")
+        print(f"    {desc}")
+        print(f"    $ {install_cmd(t, it)}\n")
+
+
+if __name__ == "__main__":
+    main()
