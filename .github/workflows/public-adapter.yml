@@ -1,0 +1,76 @@
+name: Zhiku public adapter
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-adapter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Checkout public adapter
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: adapter
+          persist-credentials: false
+      - name: Read pinned canonical commit
+        id: source
+        working-directory: adapter
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest = json.loads(Path("governance-source.json").read_text(encoding="utf-8"))
+          commit = str(manifest.get("canonical_commit") or "")
+          if len(commit) != 40 or any(ch not in "0123456789abcdef" for ch in commit.lower()):
+              raise SystemExit("invalid canonical_commit")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"commit={commit.lower()}\n")
+          PY
+      - name: Checkout pinned private canonical source
+        uses: actions/checkout@v4
+        with:
+          repository: moonstachain/yuanli-os-starter
+          ref: ${{ steps.source.outputs.commit }}
+          token: ${{ secrets.ZHIKU_GOVERNANCE_TOKEN }}
+          path: canonical
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate pinned canonical Skill
+        run: python canonical/staging/L1/zhiku-market/scripts/quick_validate.py
+      - name: Rebuild and compare the exact public adapter
+        run: |
+          python canonical/staging/L1/zhiku-market/scripts/build_distributions.py \
+            --public-dir "$RUNNER_TEMP/expected"
+          diff -ru --exclude=.git adapter "$RUNNER_TEMP/expected"
+      - name: Prove governed installer accepts valid bytes and rejects tampering
+        run: |
+          home="$RUNNER_TEMP/home"
+          mkdir -p "$home"
+          HOME="$home" ZHIKU_SKILL_BASE="file://$PWD/adapter" \
+            ZHIKU_INSTALL_TARGET=both bash adapter/install.sh
+          test -x "$home/.codex/skills/zhiku-market/scripts/zhiku"
+          test -x "$home/.claude/skills/zhiku-market/scripts/zhiku"
+          cp -R adapter "$RUNNER_TEMP/tampered"
+          printf '\n# tampered\n' >> "$RUNNER_TEMP/tampered/SKILL.md"
+          if HOME="$RUNNER_TEMP/rejected" ZHIKU_SKILL_BASE="file://$RUNNER_TEMP/tampered" \
+            ZHIKU_INSTALL_TARGET=codex bash adapter/install.sh; then
+            echo "tampered adapter was accepted" >&2
+            exit 1
+          fi
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

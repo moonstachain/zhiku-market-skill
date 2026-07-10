@@ -1,7 +1,18 @@
 {
+  "canonical_commit": "cc71cddadc10003d4ce0b6b31109cc68c2b45432",
   "canonical_path": "staging/L1/zhiku-market",
   "canonical_repo": "moonstachain/yuanli-os-starter",
-  "canonical_source_hash": "8b3bfb87e9239934df5041d265f8bf0b44a5f44a90ba1450854013f3590b2069",
+  "canonical_source_hash": "f31a2b2ee9402f83cfcce9eb6731e46af1495993d9018cc8d1d3cb4f3b561288",
   "distribution": "public",
+  "files": {
+    ".github/workflows/public-adapter.yml": "a5cd5e02812b61c52019bad23bb5c94e87aa4b7c31c0c3ba7756143a1e20a98a",
+    "LICENSE": "2dbc5ea5bba08f2803def3066456354bb592e74d3a331e3e8846047f02269d0f",
+    "README.md": "906311e126b97bd4621e1993a676de059431ea04210e16e15aea47110e59f369",
+    "SHA256SUMS": "367e205fdf35be4157cff36b936b1877e45dba6728d147f8ba7139fa31760162",
+    "SKILL.md": "ff51b541ba35c905f949bda95865564d6018dced8438c07d7faf1096832eaeae",
+    "install.sh": "6aa2426eece6ce7bc0d44f89782ba422aabf2060414f12625c34d0ed9d2c2170",
+    "zhiku": "8a8039bc4940675c8e15adf52f9280808c990e169e606ba0ca2ca8290a10c273"
+  },
+  "profile_bundle_hash": "626bd51126ea3e4436b403289f28345e468106bd80d5a17e2752ba5ee3d4aa9b",
   "schema": "zhiku_distribution_source_v1"
 }

@@ -9,8 +9,10 @@
 
 ```bash
 curl -fsSL https://os-zk.84000.art/zhiku-skill/install.sh | bash
-zhiku --deep "飞书 多维表"
+~/.local/bin/zhiku --deep "飞书 多维表"
 ```
+
+默认同时安装到 Codex 与 Claude；设置 `ZHIKU_INSTALL_TARGET=codex` 或 `claude` 可单独安装。安装器会先校验发行面 `SHA256SUMS`，再激活 CLI。
 
 公开目录只暴露名称、分类、描述、安装信息和启发式 deep 摘要；不暴露私有组件正文、密钥或客户数据。
 
