@@ -20,11 +20,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          path: adapter
           persist-credentials: false
       - name: Read pinned canonical commit
         id: source
-        working-directory: adapter
         run: |
           python3 - <<'PY'
           import json
@@ -55,19 +53,19 @@ jobs:
         run: |
           python canonical/staging/L1/zhiku-market/scripts/build_distributions.py \
             --public-dir "$RUNNER_TEMP/expected"
-          diff -ru --exclude=.git adapter "$RUNNER_TEMP/expected"
+          diff -ru --exclude=.git --exclude=canonical . "$RUNNER_TEMP/expected"
       - name: Prove governed installer accepts valid bytes and rejects tampering
         run: |
           home="$RUNNER_TEMP/home"
           mkdir -p "$home"
-          HOME="$home" ZHIKU_SKILL_BASE="file://$PWD/adapter" \
-            ZHIKU_INSTALL_TARGET=both bash adapter/install.sh
+          HOME="$home" ZHIKU_SKILL_BASE="file://$RUNNER_TEMP/expected" \
+            ZHIKU_INSTALL_TARGET=both bash "$RUNNER_TEMP/expected/install.sh"
           test -x "$home/.codex/skills/zhiku-market/scripts/zhiku"
           test -x "$home/.claude/skills/zhiku-market/scripts/zhiku"
-          cp -R adapter "$RUNNER_TEMP/tampered"
+          cp -R "$RUNNER_TEMP/expected" "$RUNNER_TEMP/tampered"
           printf '\n# tampered\n' >> "$RUNNER_TEMP/tampered/SKILL.md"
           if HOME="$RUNNER_TEMP/rejected" ZHIKU_SKILL_BASE="file://$RUNNER_TEMP/tampered" \
-            ZHIKU_INSTALL_TARGET=codex bash adapter/install.sh; then
+            ZHIKU_INSTALL_TARGET=codex bash "$RUNNER_TEMP/expected/install.sh"; then
             echo "tampered adapter was accepted" >&2
             exit 1
           fi
