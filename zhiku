@@ -437,9 +437,9 @@ def run_ego_operation(recipe, receipt):
             "reason": "publish/pay/delete/external-send operations are never automated in v1",
         })
         return receipt
-    if permission == "apply" and not recipe.get("allow_apply"):
-        receipt["status"] = "blocked_approval_required"
-        receipt["blockers"].append("apply_requires_recipe_allow_apply_true")
+    if permission == "apply":
+        receipt["status"] = "blocked_apply_not_implemented"
+        receipt["blockers"].append("apply_requires_typed_actions_reversible_executor_and_verification_receipt")
         return receipt
 
     draft_fields = recipe.get("draft_fields") if isinstance(recipe.get("draft_fields"), list) else []
@@ -551,7 +551,7 @@ def operate_main(args):
         receipt = run_ego_operation(recipe, receipt)
     out = write_receipt(receipt)
     print(json.dumps({
-        "ok": receipt["status"] in ("dry_run", "completed", "blocked_approval_required", "blocked_human_gate", "blocked_needs_user"),
+        "ok": receipt["status"] in ("dry_run", "completed", "blocked_apply_not_implemented", "blocked_human_gate", "blocked_needs_user"),
         "status": receipt["status"],
         "run_id": run_id,
         "receipt": str(out),
