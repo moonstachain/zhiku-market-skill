@@ -6,22 +6,49 @@ zhiku — 随身智库 · AI 组件市场 CLI（零依赖，python3 stdlib）
     zhiku "我要写一篇公众号长文"      # 中文任务匹配（内置中→英领域词映射）
     zhiku -t mcps "database"          # 限定类型 (skills/agents/commands/mcps/settings/hooks)
     zhiku -n 20 "video"               # 取 top 20
-    zhiku --json "feishu"             # JSON 输出（给脚本/Agent 消费）
+    zhiku --deep "elevenlabs"         # 附深度索引（触发场景/依赖/需配置 env/风险信号）
+    zhiku --json "feishu"             # JSON 输出（给脚本/Agent 消费; 配合 --deep 含 deep 子对象）
     zhiku --refresh "..."             # 强制刷新本地缓存
+    zhiku --max "desktop build"       # MAX 模式: 置信度/三法印/下一步
+    zhiku operate --recipe task.json --dry-run
+    zhiku operate --executor ego-browser --recipe task.json --apply
     zhiku --base http://127.0.0.1:8902/zhiku-api "..."   # 自定义 API base（调试）
 
-数据源: https://h5.odysseyinst.com/zhiku-api/catalog.json (匿名静态 JSON)
-缓存:   ~/.cache/zhiku/catalog.json (TTL 24h)
-安装:   curl -fsSL https://h5.odysseyinst.com/zhiku-skill/zhiku -o /usr/local/bin/zhiku && chmod +x /usr/local/bin/zhiku
-"""
-import json, math, os, re, sys, time, urllib.request
+数据源: https://os-zk.84000.art/zhiku-api/catalog.json + deep/*.json (匿名静态 JSON·canonical)
+缓存:   ~/.cache/zhiku/ (TTL 24h)
+安装:   curl -fsSL https://os-zk.84000.art/zhiku-skill/zhiku -o /usr/local/bin/zhiku && chmod +x /usr/local/bin/zhiku
 
-BASE = "https://h5.odysseyinst.com/zhiku-api"
-CACHE = os.path.expanduser("~/.cache/zhiku/catalog.json")
+深度索引(deep-v1)是从组件正文启发式蒸馏的结构化摘要(无原文): MCP 命中即使不带 --deep
+也会自动附「需 env:」行——装前就知道要不要 API key。私有组件(★)无公开深度数据。
+"""
+import datetime as dt
+import hashlib, json, math, os, re, subprocess, sys, time, urllib.error, urllib.request, uuid
+from pathlib import Path
+
+BASE = os.environ.get("ZHIKU_API_BASE", "https://os-zk.84000.art/zhiku-api")
+BEACON_URL = os.environ.get("ZHIKU_BEACON_URL", "https://os-zk.84000.art/zhiku-mcp/event")
+PROOF_URL = os.environ.get("ZHIKU_EVENT_PROOF_URL", "https://os-zk.84000.art/zhiku-mcp/event-proof")
+# match.py / H5 / CLI must move together. The deploy generator refuses drift.
+SCORE_FORMULA_VERSION = "lex-v2-usage"
+CACHE_DIR = os.path.expanduser("~/.cache/zhiku")
+CACHE = os.path.join(CACHE_DIR, "catalog.json")
+PROFILE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "profiles")
+WORKSPACE = Path(os.environ.get("ZHIKU_WORKSPACE", Path.home() / ".local" / "share" / "zhiku"))
+MAX_ROOT = Path(os.environ.get("ZHIKU_MAX_ROOT", WORKSPACE / "strategic-projects" / "zhiku-market-max"))
+OPERATE_RECEIPTS = MAX_ROOT / "receipts" / "operate"
 TTL = 24 * 3600
 TYPES = ("skills", "agents", "commands", "mcps", "settings", "hooks")
 FLAGS = {"skills": "--skill", "agents": "--agent", "commands": "--command",
          "mcps": "--mcp", "settings": "--setting", "hooks": "--hook"}
+TYPE_HINTS = {
+    "mcps": ("mcp", "mcps", "connector", "连接器"),
+    "hooks": ("hook", "hooks", "钩子"),
+    "settings": ("setting", "settings"),
+    "agents": ("agent", "agents", "subagent", "智能体", "子代理"),
+    "commands": ("command", "commands", "slash command", "斜杠命令"),
+    "skills": ("skill", "skills", "技能"),
+}
+PERMISSION_LEVELS = ("inspect", "draft", "apply", "publish_or_pay")
 
 # 中→英领域词映射（与网页版 AI 助理同源算法）
 ZH2EN = {
@@ -89,18 +116,448 @@ ZH2EN = {
 STOP = re.compile(r"^(我要|我想|想要|帮我|请帮|帮忙|给我|怎么|如何|有没有|哪个|什么|一个|一份|一篇|一条|需要|用来|可以|能不能|做个|做一个|搞个|弄个|请问)")
 
 
-def fetch_catalog(base, refresh):
-    if not refresh and os.path.exists(CACHE) and time.time() - os.path.getmtime(CACHE) < TTL:
-        with open(CACHE, encoding="utf-8") as f:
+def fetch_json(base, name, refresh):
+    cache = os.path.join(CACHE_DIR, name.replace("/", "-"))
+    has_cache = os.path.exists(cache)
+    if not refresh and has_cache and time.time() - os.path.getmtime(cache) < TTL:
+        with open(cache, encoding="utf-8") as f:
             return json.load(f)
-    url = base.rstrip("/") + "/catalog.json"
-    req = urllib.request.Request(url, headers={"User-Agent": "zhiku-cli/0.1"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        data = json.loads(r.read().decode("utf-8"))
-    os.makedirs(os.path.dirname(CACHE), exist_ok=True)
-    with open(CACHE, "w", encoding="utf-8") as f:
+    url = base.rstrip("/") + "/" + name
+    headers = {"User-Agent": "zhiku-cli/0.4"}
+    if has_cache:
+        headers["If-Modified-Since"] = time.strftime(
+            "%a, %d %b %Y %H:%M:%S GMT", time.gmtime(os.path.getmtime(cache))
+        )
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            data = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        if exc.code == 304 and has_cache:
+            os.utime(cache, None)
+            with open(cache, encoding="utf-8") as f:
+                return json.load(f)
+        raise
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    with open(cache, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
     return data
+
+
+def fetch_catalog(base, refresh):
+    return fetch_json(base, "catalog.json", refresh)
+
+
+def fetch_usage(base, refresh):
+    """Return aggregate usage weights; missing endpoints fail open to zero."""
+    try:
+        return (fetch_json(base, "usage.json", refresh) or {}).get("usage", {}) or {}
+    except Exception:
+        return {}
+
+
+def send_beacon(query, returned_paths):
+    """Send a best-effort anonymous usage signal after results are printed."""
+    if os.environ.get("ZHIKU_NO_TELEMETRY") == "1":
+        return
+    try:
+        q_hash = hashlib.sha256((query or "").strip().lower().encode("utf-8")).hexdigest()[:12]
+        proof_req = urllib.request.Request(PROOF_URL + "?source=cli", headers={"User-Agent": "zhiku-cli/0.4"})
+        proof = json.loads(urllib.request.urlopen(proof_req, timeout=3).read().decode("utf-8")).get("proof")
+        if not proof:
+            return
+        body = json.dumps({
+            "tool": "search",
+            "source": "cli",
+            "q_hash": q_hash,
+            "returned": [p for p in returned_paths[:20] if p],
+            "proof": proof,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            BEACON_URL,
+            data=body,
+            headers={"Content-Type": "text/plain", "User-Agent": "zhiku-cli/0.4"},
+        )
+        urllib.request.urlopen(req, timeout=3)
+    except Exception:
+        pass
+
+
+def fetch_deep(base, t, refresh):
+    """deep/<type>.json → {path: 深度记录}; 端点不可用时静默退化（老服务器无 deep 也能跑）。"""
+    try:
+        data = fetch_json(base, "deep/" + t + ".json", refresh)
+        return {r.get("path"): r for r in data.get("items", [])}
+    except Exception:
+        return {}
+
+
+def load_profiles():
+    """Load local capability_profile_v1 dossiers if the skill package has them."""
+    maps = {}
+    for t in TYPES:
+        p = os.path.join(PROFILE_DIR, t + ".json")
+        try:
+            data = json.load(open(p, encoding="utf-8"))
+            maps[t] = {r.get("path"): r for r in data.get("items", [])}
+        except Exception:
+            maps[t] = {}
+    return maps
+
+
+def profile_for(t, it, profiles):
+    return (profiles.get(t) or {}).get(it.get("path")) or {}
+
+
+def profile_bonus(profile):
+    """Governance-aware tie-breaker.
+
+    Semantic match must dominate routing. Local availability, validation, and
+    usage make a close candidate better; they should not lift a weak semantic
+    hit above a clearly relevant remote component.
+    """
+    if not profile:
+        return 0.0
+    bonus = 0.0
+    status = ((profile.get("how_to_use") or {}).get("status") or "")
+    if status == "local_installed":
+        bonus += 2.0
+    elif status == "private_channel":
+        bonus += 0.6
+    usage = profile.get("usage") or {}
+    calls = usage.get("local_calls") or 0
+    try:
+        bonus += min(1.5, float(calls) * 0.15)
+    except Exception:
+        pass
+    validation = profile.get("validation") or {}
+    if validation.get("state") in ("validated", "pass", "green"):
+        bonus += 1.5
+    risk = profile.get("risk_signals") or []
+    if isinstance(risk, list):
+        bonus -= min(2.0, len(risk) * 0.5)
+    elif risk:
+        bonus -= 0.5
+    return bonus
+
+
+def confidence_for(score, profile):
+    base = min(0.88, 0.35 + float(score) / 120.0)
+    if profile:
+        rc = profile.get("routing_confidence")
+        if isinstance(rc, (int, float)):
+            base = (base + float(rc)) / 2
+    return round(max(0.05, min(0.98, base)), 2)
+
+
+def max_mode_for(t, it, profile):
+    risk = (profile or {}).get("risk_signals") or []
+    status = ((profile or {}).get("how_to_use") or {}).get("status") or ("private_channel" if it.get("mine") else "remote_install")
+    if t in ("hooks", "settings") or risk:
+        return "govern"
+    if "dashboard" in (it.get("description") or "").lower() or "cockpit" in (it.get("description") or "").lower():
+        return "cockpit"
+    if status == "local_installed":
+        return "route"
+    return "route"
+
+
+def three_seals_for(t, it, profile):
+    status = ((profile or {}).get("how_to_use") or {}).get("status") or ("private_channel" if it.get("mine") else "remote_install")
+    validation = ((profile or {}).get("validation") or {}).get("state") or "unknown"
+    return {
+        "recursive_evolution": "记录使用结果到 profile/receipt/self-assess，失败也回流为风险或验证缺口",
+        "global_optimum": f"当前状态 {status}，验证 {validation}；优先本地可用，其次远程安装候选",
+        "human_friendliness": "外部写入和 hooks/settings 安装保持审批；私有组件不输出公开安装命令",
+    }
+
+
+def next_step_for(t, it, profile):
+    status = ((profile or {}).get("how_to_use") or {}).get("status") or ("private_channel" if it.get("mine") else "remote_install")
+    if status == "local_installed":
+        return "直接使用本地已装能力，并把结果写入 receipt 或 profile 回流。"
+    if status == "private_channel":
+        return "先确认私有共享权限；只读元数据可用于判断，不公开安装。"
+    if t in ("hooks", "settings"):
+        return "先人工复核事件、matcher、权限和风险，再决定是否安装。"
+    return "如确认需要，按安装命令安装；安装后运行最小 smoke test。"
+
+
+def utc_now():
+    return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+
+
+def short_slug(value, limit=36):
+    value = re.sub(r"[^a-zA-Z0-9\u4e00-\u9fff]+", "-", str(value or "operate")).strip("-")
+    return (value or "operate")[:limit].strip("-") or "operate"
+
+
+def load_json_file(path, default):
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except Exception:
+        return default
+
+
+def write_json_file(path, data):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def normalize_recipe(recipe):
+    if not isinstance(recipe, dict):
+        raise ValueError("operation_recipe_v1 must be a JSON object")
+    out = dict(recipe)
+    out.setdefault("schema", "operation_recipe_v1")
+    out.setdefault("executor", "ego-browser")
+    out.setdefault("permission_level", "inspect")
+    out.setdefault("planned_steps", [])
+    out.setdefault("checkpoints", [])
+    out.setdefault("rollback_note", "No external write should be made without a fresh human gate.")
+    out.setdefault("risk_tags", [])
+    out.setdefault("component_path", None)
+    missing = [k for k in ("intent", "target_url") if not out.get(k)]
+    if missing:
+        raise ValueError("recipe missing required field(s): " + ", ".join(missing))
+    if out.get("executor") != "ego-browser":
+        raise ValueError("only executor=ego-browser is supported in v1")
+    if out.get("permission_level") not in PERMISSION_LEVELS:
+        raise ValueError("permission_level must be one of: " + ", ".join(PERMISSION_LEVELS))
+    if not re.match(r"^https?://", str(out.get("target_url"))):
+        raise ValueError("target_url must be an http(s) URL")
+    if not isinstance(out.get("planned_steps"), list):
+        raise ValueError("planned_steps must be a list")
+    if not isinstance(out.get("checkpoints"), list):
+        raise ValueError("checkpoints must be a list")
+    if not isinstance(out.get("risk_tags"), list):
+        raise ValueError("risk_tags must be a list")
+    return out
+
+
+def default_receipt(recipe, mode, run_id):
+    return {
+        "schema": "operation_run_receipt_v1",
+        "run_id": run_id,
+        "executor": recipe.get("executor", "ego-browser"),
+        "mode": mode,
+        "permission_level": recipe.get("permission_level"),
+        "component_path": recipe.get("component_path"),
+        "target_url": recipe.get("target_url"),
+        "intent": recipe.get("intent"),
+        "task_space_id": None,
+        "status": "created",
+        "observations": [],
+        "actions_taken": [],
+        "handoff_events": [],
+        "blockers": [],
+        "evidence_paths": [],
+        "started_at": utc_now(),
+        "finished_at": None,
+        "recipe": recipe,
+    }
+
+
+def update_operate_governance(receipt):
+    OPERATE_RECEIPTS.mkdir(parents=True, exist_ok=True)
+    latest_receipts = sorted(OPERATE_RECEIPTS.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:10]
+    status = receipt.get("status")
+    run_id = receipt.get("run_id")
+
+    action_path = MAX_ROOT / "action-ledger.json"
+    action_doc = load_json_file(action_path, {"project_id": "zhiku-market-max", "items": []})
+    actions = action_doc.setdefault("items", [])
+    action = {
+        "id": "A6",
+        "title": "Operate with Ego 网页端 AI 自动操作任务包与本地执行层",
+        "owner": "Codex",
+        # Execution receipts alone never prove that the current H5/CLI
+        # distribution still exposes Operate. build_max_cockpit.py promotes
+        # this to done only after the hash-bound surface smoke gate passes.
+        "status": "review",
+        "priority": "P0",
+        "evidence_refs": [f"operate:{run_id}"],
+        "last_receipt": str(OPERATE_RECEIPTS / f"{run_id}.json"),
+    }
+    actions[:] = [a for a in actions if a.get("id") != "A6"] + [action]
+    write_json_file(action_path, action_doc)
+
+    risk_path = MAX_ROOT / "risk-register.json"
+    risk_doc = load_json_file(risk_path, {"project_id": "zhiku-market-max", "items": []})
+    risks = risk_doc.setdefault("items", [])
+    risk = {
+        "id": "R4",
+        "title": "网页自动操作必须维持 ego task space 隔离与人工门",
+        "level": "amber",
+        "mitigation": "H5 只生成 operation_recipe_v1；本地 zhiku operate 执行，apply 默认阻断，publish_or_pay 永远 handoff。",
+        "last_receipt": str(OPERATE_RECEIPTS / f"{run_id}.json"),
+    }
+    risks[:] = [r for r in risks if r.get("id") != "R4"] + [risk]
+    write_json_file(risk_path, risk_doc)
+
+    dashboard_path = MAX_ROOT / "dashboard-data.json"
+    dashboard = load_json_file(dashboard_path, {})
+    if dashboard:
+        dashboard.setdefault("automation_status", {})["operate_with_ego"] = {
+            "status": "receipt_recorded_surface_rebuild_required",
+            "last_execution_status": status,
+            "executor": receipt.get("executor"),
+            "last_receipt": str(OPERATE_RECEIPTS / f"{run_id}.json"),
+            "receipt_count": len(latest_receipts),
+            "permission_level": receipt.get("permission_level"),
+            "static_h5_executes_browser": False,
+            "surface_gate": "rebuild_required",
+        }
+        dashboard.setdefault("metrics", {})["operate_receipts"] = len(latest_receipts)
+        actions_data = dashboard.setdefault("actions", [])
+        actions_data[:] = [a for a in actions_data if a.get("id") != "A6"] + [action]
+        risks_data = dashboard.setdefault("risks", [])
+        risks_data[:] = [r for r in risks_data if r.get("id") != "R4"] + [risk]
+        write_json_file(dashboard_path, dashboard)
+
+
+def write_receipt(receipt):
+    receipt["finished_at"] = utc_now()
+    OPERATE_RECEIPTS.mkdir(parents=True, exist_ok=True)
+    out = OPERATE_RECEIPTS / f"{receipt['run_id']}.json"
+    write_json_file(out, receipt)
+    receipt["evidence_paths"] = sorted(set((receipt.get("evidence_paths") or []) + [str(out)]))
+    write_json_file(out, receipt)
+    update_operate_governance(receipt)
+    return out
+
+
+def run_ego_operation(recipe, receipt):
+    permission = recipe.get("permission_level")
+    if permission == "publish_or_pay":
+        receipt["status"] = "blocked_human_gate"
+        receipt["blockers"].append("publish_or_pay_requires_manual_handoff")
+        receipt["handoff_events"].append({
+            "type": "required_before_execution",
+            "reason": "publish/pay/delete/external-send operations are never automated in v1",
+        })
+        return receipt
+    if permission == "apply" and not recipe.get("allow_apply"):
+        receipt["status"] = "blocked_approval_required"
+        receipt["blockers"].append("apply_requires_recipe_allow_apply_true")
+        return receipt
+
+    draft_fields = recipe.get("draft_fields") if isinstance(recipe.get("draft_fields"), list) else []
+    task_name = f"zhiku:{receipt['run_id']}:{short_slug(recipe.get('intent'))}"
+    js_recipe = json.dumps(recipe, ensure_ascii=False)
+    js = f"""
+const recipe = {js_recipe};
+const task = await useOrCreateTaskSpace({json.dumps(task_name)});
+const receipt = {{
+  task_space_id: task.id,
+  observations: [],
+  actions_taken: [],
+  handoff_events: [],
+  blockers: []
+}};
+try {{
+  await openOrReuseTab(recipe.target_url, {{ wait: true, timeout: 30 }});
+  const info = await pageInfo();
+  receipt.observations.push({{type: "page_info", value: info}});
+  if (info && info.dialog) {{
+    receipt.blockers.push("browser_dialog_open");
+  }} else {{
+    const snap = await snapshotText();
+    receipt.observations.push({{type: "snapshot_head", value: String(snap || "").slice(0, 1800)}});
+  }}
+  if (recipe.permission_level === "draft" && Array.isArray(recipe.draft_fields)) {{
+    for (const field of recipe.draft_fields) {{
+      if (!field || !field.selector || field.value == null) continue;
+      await fillInput(String(field.selector), String(field.value));
+      receipt.actions_taken.push({{type: "fillInput", selector: String(field.selector), submitted: false}});
+    }}
+    const after = await snapshotText();
+    receipt.observations.push({{type: "draft_verify_snapshot_head", value: String(after || "").slice(0, 1200)}});
+  }}
+  await completeTaskSpace(task.id, {{ keep: false }});
+  receipt.actions_taken.push({{type: "completeTaskSpace", keep: false}});
+  cliLog(JSON.stringify(receipt));
+}} catch (err) {{
+  receipt.blockers.push(String(err && err.message || err));
+  try {{ await completeTaskSpace(task.id, {{ keep: false }}); }} catch (closeErr) {{}}
+  cliLog(JSON.stringify(receipt));
+}}
+"""
+    proc = subprocess.run(["ego-browser", "nodejs"], input=js, text=True, capture_output=True, timeout=90)
+    combined_output = "\n".join(x for x in (proc.stdout, proc.stderr) if x)
+    if proc.returncode != 0:
+        receipt["status"] = "failed"
+        receipt["blockers"].append(combined_output.strip() or f"ego-browser exited {proc.returncode}")
+        return receipt
+    lines = [ln.strip() for ln in combined_output.splitlines() if ln.strip()]
+    payload = None
+    for line in reversed(lines):
+        try:
+            payload = json.loads(line)
+            break
+        except Exception:
+            continue
+    if not payload:
+        receipt["status"] = "failed"
+        receipt["blockers"].append("ego_browser_no_json_receipt")
+        if combined_output.strip():
+            receipt["observations"].append({"type": "ego_output", "value": combined_output[-2000:]})
+        return receipt
+    receipt["task_space_id"] = payload.get("task_space_id")
+    receipt["observations"].extend(payload.get("observations") or [])
+    receipt["actions_taken"].extend(payload.get("actions_taken") or [])
+    receipt["handoff_events"].extend(payload.get("handoff_events") or [])
+    receipt["blockers"].extend(payload.get("blockers") or [])
+    receipt["status"] = "completed" if not receipt["blockers"] else "blocked_needs_user"
+    return receipt
+
+
+def operate_main(args):
+    recipe_path, executor, mode = None, "ego-browser", "dry_run"
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a == "--recipe":
+            recipe_path = args[i + 1]; i += 2
+        elif a == "--executor":
+            executor = args[i + 1]; i += 2
+        elif a == "--dry-run":
+            mode = "dry_run"; i += 1
+        elif a == "--apply":
+            mode = "apply"; i += 1
+        elif a in ("-h", "--help"):
+            print("usage: zhiku operate --recipe operation_recipe_v1.json [--executor ego-browser] [--dry-run|--apply]")
+            return
+        else:
+            sys.exit(f"未知 operate 参数: {a}")
+    if not recipe_path:
+        sys.exit("operate requires --recipe <operation_recipe_v1.json>")
+    recipe = normalize_recipe(load_json_file(recipe_path, {}))
+    recipe["executor"] = executor or recipe.get("executor") or "ego-browser"
+    recipe = normalize_recipe(recipe)
+    run_id = "op-" + dt.datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
+    receipt = default_receipt(recipe, mode, run_id)
+    if mode == "dry_run":
+        receipt["status"] = "dry_run"
+        receipt["observations"].append({
+            "type": "planned_task_space",
+            "value": f"zhiku:{run_id}:{short_slug(recipe.get('intent'))}",
+        })
+        receipt["actions_taken"].append({
+            "type": "no_browser_action",
+            "reason": "dry-run only; static H5 never controls local browser directly",
+        })
+    else:
+        receipt = run_ego_operation(recipe, receipt)
+    out = write_receipt(receipt)
+    print(json.dumps({
+        "ok": receipt["status"] in ("dry_run", "completed", "blocked_approval_required", "blocked_human_gate", "blocked_needs_user"),
+        "status": receipt["status"],
+        "run_id": run_id,
+        "receipt": str(out),
+        "task_space_id": receipt.get("task_space_id"),
+        "blockers": receipt.get("blockers"),
+    }, ensure_ascii=False, indent=2))
 
 
 def tokenize(q):
@@ -120,7 +577,28 @@ def tokenize(q):
     return en, segs, grams, ex
 
 
-def score_all(q, catalog, only_type=None):
+def infer_type(q):
+    """Infer component type from explicit user wording. Explicit -t still wins."""
+    ql = q.lower()
+    matches = []
+    for t, hints in TYPE_HINTS.items():
+        if any(h in ql for h in hints):
+            matches.append(t)
+    return matches[0] if matches else None
+
+
+def strip_type_terms(q):
+    """Remove explicit type words before semantic scoring so "database MCP" scores database."""
+    out = q
+    for hints in TYPE_HINTS.values():
+        for h in hints:
+            out = re.sub(re.escape(h), " ", out, flags=re.I)
+    return re.sub(r"\s+", " ", out).strip() or q
+
+
+def score_all(q, catalog, only_type=None, profiles=None, usage=None):
+    profiles = profiles or {}
+    usage = usage or {}
     en, segs, grams, ex = tokenize(q)
     res = []
     for t in TYPES:
@@ -143,19 +621,84 @@ def score_all(q, catalog, only_type=None):
             if it.get("mine"):
                 sc *= 1.5
             sc += math.log10((it.get("downloads") or 0) + 1) * 0.3
+            sc += math.log10((usage.get(it.get("path")) or 0) + 1) * 0.4
+            sc += profile_bonus(profile_for(t, it, profiles))
             res.append((sc, t, it))
     res.sort(key=lambda x: -x[0])
     return res
 
 
 def install_cmd(t, it):
+    if it.get("install"):
+        return str(it["install"])
     p = re.sub(r"\.(md|json)$", "", it.get("path") or it.get("name") or "")
     return f"npx claude-code-templates@latest {FLAGS[t]} {p} --yes"
 
 
+def use_instruction(t, it, profile=None):
+    status = ((profile or {}).get("how_to_use") or {}).get("status")
+    if it.get("mine"):
+        if status == "local_installed":
+            return "本地已装：直接按当前 Codex skill 路由调用；不输出公开安装命令"
+        return "私有共享通道：需仓库/共享权限后再安装；不输出公开安装命令"
+    return install_cmd(t, it)
+
+
+COMPONENT_ENDPOINT = os.environ.get("ZHIKU_COMPONENT_ENDPOINT", "https://os-zk.84000.art/zhiku-mcp/c/")
+
+
+def deep_record(t, it, deepmaps):
+    if it.get("mine"):
+        return None
+    record = (deepmaps.get(t) or {}).get(it.get("path"))
+    if record:
+        return record
+    try:
+        req = urllib.request.Request(
+            COMPONENT_ENDPOINT + (it.get("path") or ""),
+            headers={"User-Agent": "zhiku-cli/0.4"},
+        )
+        full = json.loads(urllib.request.urlopen(req, timeout=3).read().decode("utf-8"))
+        return full.get("deep") or None
+    except Exception:
+        return None
+
+
+def deep_text_lines(t, it, deepmaps, want_deep):
+    """深度索引输出行: 不带 --deep 时只给 mcps 附「需 env:」; 带 --deep 时全量。"""
+    if it.get("mine"):
+        return ["    深度: 私有组件无公开深度信息（安装需 yuanli-os-starter 仓权限）"] if want_deep else []
+    r = deep_record(t, it, deepmaps)
+    if not r:
+        return []
+    out = []
+    ek = r.get("env_required") or r.get("env_keys")
+    if ek and (want_deep or t == "mcps"):
+        out.append("    需 env: " + ", ".join(ek))
+    if want_deep:
+        if r.get("runner"):
+            out.append("    运行方式: " + str(r["runner"]))
+        if r.get("deps"):
+            out.append("    依赖: " + ", ".join(r["deps"]))
+        if r.get("allowed_tools"):
+            out.append("    工具: " + r["allowed_tools"])
+        if r.get("triggers"):
+            out.append("    触发: " + r["triggers"][0])
+        if r.get("usage"):
+            out.append("    用法: " + r["usage"][0])
+        if r.get("events"):
+            out.append("    事件: " + ", ".join(r["events"]))
+        if r.get("risk"):
+            out.append("    风险信号: " + ", ".join(r["risk"]))
+    return out
+
+
 def main():
     args = sys.argv[1:]
-    base, only_type, top, as_json, refresh = BASE, None, 10, False, False
+    if args and args[0] == "operate":
+        operate_main(args[1:])
+        return
+    base, only_type, top, as_json, refresh, want_deep, max_mode = BASE, None, 10, False, False, False, False
     q = []
     i = 0
     while i < len(args):
@@ -168,8 +711,12 @@ def main():
             base = args[i + 1]; i += 2
         elif a == "--json":
             as_json = True; i += 1
+        elif a == "--max":
+            max_mode = True; want_deep = True; i += 1
         elif a == "--refresh":
             refresh = True; i += 1
+        elif a in ("-d", "--deep"):
+            want_deep = True; i += 1
         elif a in ("-h", "--help"):
             print(__doc__); return
         else:
@@ -179,25 +726,80 @@ def main():
     if only_type and only_type not in TYPES:
         sys.exit(f"未知类型 {only_type}，可选: {'/'.join(TYPES)}")
     query = " ".join(q)
+    if not only_type:
+        only_type = infer_type(query)
+    score_query = strip_type_terms(query) if only_type else query
     catalog = fetch_catalog(base, refresh)
-    hits = score_all(query, catalog, only_type)[:top]
+    profiles = load_profiles()
+    usage = fetch_usage(base, refresh)
+    hits = score_all(score_query, catalog, only_type, profiles, usage)[:top]
+    # deep 索引按需懒加载: --deep 拉命中的全部类型; 默认只拉 mcps(装前 env 需求最关键且文件最小)
+    need = {t for _, t, it in hits if not it.get("mine") and (want_deep or t == "mcps")}
+    deepmaps = {t: fetch_deep(base, t, refresh) for t in need}
     if as_json:
-        print(json.dumps([{"score": round(s, 2), "type": t, "name": it.get("name"),
-                           "category": it.get("category"), "mine": it.get("mine", 0),
-                           "description": it.get("description", ""), "install": install_cmd(t, it)}
-                          for s, t, it in hits], ensure_ascii=False, indent=1))
+        rows = []
+        for s, t, it in hits:
+            p = profile_for(t, it, profiles)
+            row = {"score": round(s, 2), "type": t, "name": it.get("name"),
+                   "category": it.get("category"), "mine": it.get("mine", 0),
+                   "description": it.get("description", ""), "install": None if it.get("mine") else install_cmd(t, it),
+                   "use": use_instruction(t, it, p)}
+            if p:
+                row["profile"] = {
+                    "status": (p.get("how_to_use") or {}).get("status"),
+                    "validation": (p.get("validation") or {}).get("state"),
+                    "usage": p.get("usage"),
+                    "risk_signals": p.get("risk_signals"),
+                    "routing_confidence": p.get("routing_confidence"),
+                    "max_recommendation_tier": p.get("max_recommendation_tier"),
+                    "governance_flags": p.get("governance_flags"),
+                }
+            if max_mode:
+                row["max"] = {
+                    "confidence": confidence_for(s, p),
+                    "mode": max_mode_for(t, it, p),
+                    "three_seals": three_seals_for(t, it, p),
+                    "next_step": next_step_for(t, it, p),
+                }
+            r = deep_record(t, it, deepmaps)
+            if r:
+                row["deep"] = {k: v for k, v in r.items() if k not in ("name", "path")}
+            rows.append(row)
+        print(json.dumps(rows, ensure_ascii=False, indent=1))
+        send_beacon(query, [it.get("path") for _, _, it in hits])
         return
     if not hits:
         print("没匹配到组件——换个说法试试（中文领域词或英文关键词，如 video / wechat / database）")
         return
     built = (catalog.get("_meta") or {}).get("built", "?")
-    print(f"随身智库 · 组件市场 — \"{query}\" top {len(hits)}（数据 {built}）\n")
+    title = "随身智库-MAX" if max_mode else "随身智库 · 组件市场"
+    print(f"{title} — \"{query}\" top {len(hits)}（数据 {built}）\n")
     for s, t, it in hits:
         star = " ★私有(需仓权限)" if it.get("mine") else ""
+        p = profile_for(t, it, profiles)
+        status = ((p.get("how_to_use") or {}).get("status") or ("private_channel" if it.get("mine") else "remote_install"))
+        risk = p.get("risk_signals") or []
         desc = re.sub(r"\s+", " ", it.get("description") or "").strip()[:100]
-        print(f"  {it.get('name')}  〔{t}·{it.get('category','—')}〕{star}")
+        print(f"  {it.get('name')}  〔{t}·{it.get('category','—')}·{status}〕{star}")
         print(f"    {desc}")
-        print(f"    $ {install_cmd(t, it)}\n")
+        for ln in deep_text_lines(t, it, deepmaps, want_deep):
+            print(ln)
+        if risk:
+            print("    profile 风险: " + ", ".join(risk if isinstance(risk, list) else [str(risk)]))
+        if max_mode:
+            print(f"    MAX 置信度: {confidence_for(s, p):.2f} · 模式: {max_mode_for(t, it, p)} · tier: {p.get('max_recommendation_tier', 'unknown')}")
+            seals = three_seals_for(t, it, p)
+            print("    三法印:")
+            print("      递归进化: " + seals["recursive_evolution"])
+            print("      全局最优: " + seals["global_optimum"])
+            print("      人类友好: " + seals["human_friendliness"])
+            print("    下一步: " + next_step_for(t, it, p))
+        instruction = use_instruction(t, it, p)
+        if it.get("mine"):
+            print(f"    {instruction}\n")
+        else:
+            print(f"    $ {instruction}\n")
+    send_beacon(query, [it.get("path") for _, _, it in hits])
 
 
 if __name__ == "__main__":

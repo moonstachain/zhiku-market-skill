@@ -1,0 +1,7 @@
+{
+  "canonical_path": "staging/L1/zhiku-market",
+  "canonical_repo": "moonstachain/yuanli-os-starter",
+  "canonical_source_hash": "8b3bfb87e9239934df5041d265f8bf0b44a5f44a90ba1450854013f3590b2069",
+  "distribution": "public",
+  "schema": "zhiku_distribution_source_v1"
+}
