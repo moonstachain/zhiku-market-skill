@@ -1,25 +1,25 @@
 {
-  "build_id": "zhiku-58bb27d0fb3cf8f7",
-  "canonical_commit": "7b7066035206c2a4268e716b9e87b9efe757b2c9",
+  "build_id": "zhiku-ab4b669ea1a22882",
+  "canonical_commit": "38380b909318f083571744646b8f7dab8d7b0e43",
   "canonical_path": "staging/L1/zhiku-market",
   "canonical_repo": "moonstachain/yuanli-os-starter",
-  "canonical_source_hash": "2e822b9ae590e5997aea035a79104c5381e9145877084005d07829ba6cfd818e",
+  "canonical_source_hash": "74d773f7e0470f3b059dcd77d5fa901f3c8dde97ecfb61fe0e3b27ac47bb7804",
   "catalog_hash": "e06dad80cee04349401f561292ffb3e540b54046096b89fb34a633d382ef3d54",
-  "core_commit": "7b7066035206c2a4268e716b9e87b9efe757b2c9",
+  "core_commit": "38380b909318f083571744646b8f7dab8d7b0e43",
   "distribution": "public",
   "eval_run_id": "zbe-bf376e5419bc655f",
   "files": {
     ".github/workflows/public-adapter.yml": "d5a9b6536925dd4db45eec455063dddbf6591911c48561cc9b5c7965ac6ad71b",
     "LICENSE": "2dbc5ea5bba08f2803def3066456354bb592e74d3a331e3e8846047f02269d0f",
     "README.md": "906311e126b97bd4621e1993a676de059431ea04210e16e15aea47110e59f369",
-    "SHA256SUMS": "959e7d7a2d1d6e993913beb7ecd45ba5909b7cc2b6d69bfe12e56ccd4019f654",
+    "SHA256SUMS": "f20ff3c47b5948b0dc3d9c77d57aceb8f5d60503faf5dc414e8a3747f8af6eb9",
     "SKILL.md": "ff51b541ba35c905f949bda95865564d6018dced8438c07d7faf1096832eaeae",
     "install.sh": "6aa2426eece6ce7bc0d44f89782ba422aabf2060414f12625c34d0ed9d2c2170",
-    "zhiku": "a13786ed8c01cb5897a0272220cce86b86b283a20444c9582b10a66e649fb078"
+    "zhiku": "9411424eed44b9915025bdf7679ebabfc3046de6fe1b73239ef28fa9c4a79684"
   },
   "generated_projection": true,
   "manual_edits_forbidden": true,
   "profile_bundle_hash": "54f2c9e0c725ec66196e172771f192d64a245549d1c8b8b81233c04cdec46128",
-  "release_id": "zkr-58bb27d0fb3cf8f760b1",
+  "release_id": "zkr-ab4b669ea1a22882af27",
   "schema": "zhiku_distribution_source_v1"
 }
