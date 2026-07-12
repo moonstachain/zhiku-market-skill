@@ -12,6 +12,11 @@ zhiku — 随身智库 · AI 组件市场 CLI（零依赖，python3 stdlib）
     zhiku --max "desktop build"       # MAX 模式: 置信度/三法印/下一步
     zhiku operate --recipe task.json --dry-run
     zhiku operate --executor ego-browser --recipe task.json --apply
+    zhiku skill discover             # 发现本地/任务/GitHub Skill 变化
+    zhiku skill inbox                # 最多显示 5 个治理决策
+    zhiku skill capture ...          # 显式沉淀当前成功工作
+    zhiku use <skill>                # 安装到 Codex + Claude
+    zhiku forge status               # 兼容别名（已弃用）
     zhiku --base http://127.0.0.1:8902/zhiku-api "..."   # 自定义 API base（调试）
 
 数据源: https://os-zk.84000.art/zhiku-api/catalog.json + deep/*.json (匿名静态 JSON·canonical)
@@ -695,6 +700,23 @@ def deep_text_lines(t, it, deepmaps, want_deep):
 
 def main():
     args = sys.argv[1:]
+    if args and args[0] in {"skill", "use"}:
+        configured = os.environ.get("ZHIKU_CORE_ROOT")
+        embedded = Path(__file__).resolve().parents[4]
+        core_root = Path(configured).expanduser().resolve() if configured else embedded
+        governor = core_root / "systems/zhiku/forge/skill_governor.py"
+        if not governor.exists():
+            sys.exit("blocked_private_control_plane_unavailable: set ZHIKU_CORE_ROOT to yuanli-os-starter")
+        forwarded = args[1:] if args[0] == "skill" else ["install", *args[1:]]
+        raise SystemExit(subprocess.call([sys.executable, str(governor), *forwarded]))
+    if args and args[0] == "forge":
+        configured = os.environ.get("ZHIKU_CORE_ROOT")
+        embedded = Path(__file__).resolve().parents[4]
+        core_root = Path(configured).expanduser().resolve() if configured else embedded
+        forge = core_root / "systems/zhiku/forge/zhiku_forge.py"
+        if not forge.exists():
+            sys.exit("blocked_private_control_plane_unavailable: set ZHIKU_CORE_ROOT to yuanli-os-starter")
+        raise SystemExit(subprocess.call([sys.executable, str(forge), *args[1:]]))
     if args and args[0] == "operate":
         operate_main(args[1:])
         return
