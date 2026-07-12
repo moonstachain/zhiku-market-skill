@@ -33,6 +33,10 @@ jobs:
           commit = str(manifest.get("canonical_commit") or "")
           if len(commit) != 40 or any(ch not in "0123456789abcdef" for ch in commit.lower()):
               raise SystemExit("invalid canonical_commit")
+          if manifest.get("generated_projection") is not True or manifest.get("manual_edits_forbidden") is not True:
+              raise SystemExit("public adapter is not marked as generated-only")
+          if not str(manifest.get("release_id") or "").startswith("zkr-"):
+              raise SystemExit("release_id missing from public projection")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"commit={commit.lower()}\n")
           PY
@@ -41,18 +45,21 @@ jobs:
         with:
           repository: moonstachain/yuanli-os-starter
           ref: ${{ steps.source.outputs.commit }}
-          token: ${{ secrets.ZHIKU_GOVERNANCE_TOKEN }}
+          ssh-key: ${{ secrets.ZHIKU_CORE_DEPLOY_KEY }}
           path: canonical
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Validate pinned canonical Skill
-        run: python canonical/staging/L1/zhiku-market/scripts/quick_validate.py
-      - name: Rebuild and compare the exact public adapter
+      - name: Rebuild the pinned one-source release
         run: |
-          python canonical/staging/L1/zhiku-market/scripts/build_distributions.py \
-            --public-dir "$RUNNER_TEMP/expected"
+          python canonical/systems/zhiku/release/zhiku_release.py prepare
+          mkdir -p "$RUNNER_TEMP/expected"
+          git -C "$RUNNER_TEMP/expected" init
+          python canonical/systems/zhiku/release/zhiku_release.py project \
+            --target public-skill --destination "$RUNNER_TEMP/expected"
+      - name: Compare the exact generated public adapter
+        run: |
           diff -ru --exclude=.git --exclude=canonical . "$RUNNER_TEMP/expected"
       - name: Prove governed installer accepts valid bytes and rejects tampering
         run: |
