@@ -51,6 +51,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install deterministic MCP/evaluation runtime
+        run: python -m pip install -r canonical/systems/zhiku/mcp/requirements.txt
       - name: Rebuild the pinned one-source release
         run: |
           python canonical/systems/zhiku/release/zhiku_release.py prepare
