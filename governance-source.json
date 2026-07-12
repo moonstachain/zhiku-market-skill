@@ -1,11 +1,11 @@
 {
-  "build_id": "zhiku-7a2d5242411e40f1",
-  "canonical_commit": "d6a1c6a33d667c2f9c4aeb635ad8798e7f3d2cab",
+  "build_id": "zhiku-2cdb422699ff66c2",
+  "canonical_commit": "91a2b8d09a4f43d76d85c9837b08984638e2d5ea",
   "canonical_path": "staging/L1/zhiku-market",
   "canonical_repo": "moonstachain/yuanli-os-starter",
   "canonical_source_hash": "ff87bd77b571b731cf92420d6f5e2dcb4c49527d47c13902a877d4a765de3b9c",
-  "catalog_hash": "10df6cdd70799960a98bff6a4be42404a07f511b7415b502c2c721c49d4b4311",
-  "core_commit": "d6a1c6a33d667c2f9c4aeb635ad8798e7f3d2cab",
+  "catalog_hash": "e06dad80cee04349401f561292ffb3e540b54046096b89fb34a633d382ef3d54",
+  "core_commit": "91a2b8d09a4f43d76d85c9837b08984638e2d5ea",
   "distribution": "public",
   "eval_run_id": "zbe-411c3fbde1f7d1ce",
   "files": {
@@ -20,6 +20,6 @@
   "generated_projection": true,
   "manual_edits_forbidden": true,
   "profile_bundle_hash": "54f2c9e0c725ec66196e172771f192d64a245549d1c8b8b81233c04cdec46128",
-  "release_id": "zkr-7a2d5242411e40f1c1f0",
+  "release_id": "zkr-2cdb422699ff66c2f31a",
   "schema": "zhiku_distribution_source_v1"
 }
