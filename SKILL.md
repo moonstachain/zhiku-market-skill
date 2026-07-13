@@ -34,6 +34,8 @@ zhiku --max "治理 skill MCP GitHub"
 
 Operate 使用 `operation_recipe_v1`：H5 只生成 recipe，本地 `zhiku operate` 执行；`apply` 默认阻断，`publish_or_pay` 永久保持人工门。
 
+`zhiku wechat` 仅是对私有 canonical 本机控制面的安全委派。公开包不包含微信 token、二维码、邀请码、成员身份、会话正文或 Agent 后端；未配置 `ZHIKU_CORE_ROOT` 时必须返回 `blocked_private_control_plane_unavailable`。
+
 ## Privacy and trust
 
 - `mine=1` 只表示私有渠道，不代表安全验证通过。

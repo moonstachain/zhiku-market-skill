@@ -1,25 +1,25 @@
 {
-  "build_id": "zhiku-f66b430691c83471",
-  "canonical_commit": "4b6175a90a08efd424558a964deb334ed8d560f8",
+  "build_id": "zhiku-65027bbe5b99ce5c",
+  "canonical_commit": "b52b73734a012f3bad573bd4983854b9f17e16a3",
   "canonical_path": "staging/L1/zhiku-market",
   "canonical_repo": "moonstachain/yuanli-os-starter",
-  "canonical_source_hash": "74d773f7e0470f3b059dcd77d5fa901f3c8dde97ecfb61fe0e3b27ac47bb7804",
+  "canonical_source_hash": "bfc4b63038c079e5ef543727bfab636d45463d9410c0a825766088aa40af2b3e",
   "catalog_hash": "be024e2880d05b14c9a6e93abf4cd94c17e5806c82459f54ccbba2c6a689c133",
-  "core_commit": "4b6175a90a08efd424558a964deb334ed8d560f8",
+  "core_commit": "b52b73734a012f3bad573bd4983854b9f17e16a3",
   "distribution": "public",
   "eval_run_id": "zbe-aa6b2e8685f643f3",
   "files": {
     ".github/workflows/public-adapter.yml": "d5a9b6536925dd4db45eec455063dddbf6591911c48561cc9b5c7965ac6ad71b",
     "LICENSE": "2dbc5ea5bba08f2803def3066456354bb592e74d3a331e3e8846047f02269d0f",
-    "README.md": "906311e126b97bd4621e1993a676de059431ea04210e16e15aea47110e59f369",
-    "SHA256SUMS": "f20ff3c47b5948b0dc3d9c77d57aceb8f5d60503faf5dc414e8a3747f8af6eb9",
-    "SKILL.md": "ff51b541ba35c905f949bda95865564d6018dced8438c07d7faf1096832eaeae",
+    "README.md": "87bab9f151e7cbfe279666185fc1f5ab453744920d0ec54eb51b77180bbf99ba",
+    "SHA256SUMS": "ce0cea2e8e7b4c537078c6c869ead940cc4ab9d5fa265675e0477d7b16e26116",
+    "SKILL.md": "dd22183bc3ae40633bebbae7cf57b4475d8aadb4fcce3be56ea9f8ca8e2d577a",
     "install.sh": "6aa2426eece6ce7bc0d44f89782ba422aabf2060414f12625c34d0ed9d2c2170",
-    "zhiku": "9411424eed44b9915025bdf7679ebabfc3046de6fe1b73239ef28fa9c4a79684"
+    "zhiku": "90480b0fdf3913eb0e3c826f02f3b7b351d1a251b3b3055db5a7a99dd4e36ec1"
   },
   "generated_projection": true,
   "manual_edits_forbidden": true,
   "profile_bundle_hash": "54f2c9e0c725ec66196e172771f192d64a245549d1c8b8b81233c04cdec46128",
-  "release_id": "zkr-f66b430691c8347109ec",
+  "release_id": "zkr-65027bbe5b99ce5c5ca3",
   "schema": "zhiku_distribution_source_v1"
 }

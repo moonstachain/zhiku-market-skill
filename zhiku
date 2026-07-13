@@ -15,6 +15,8 @@ zhiku — 随身智库 · AI 组件市场 CLI（零依赖，python3 stdlib）
     zhiku skill discover             # 发现本地/任务/GitHub Skill 变化
     zhiku skill inbox                # 最多显示 5 个治理决策
     zhiku skill capture ...          # 显式沉淀当前成功工作
+    zhiku wechat preflight           # 私有本机微信 Agent 通道预检
+    zhiku wechat status              # 私有控制面状态（公开包仅安全委派）
     zhiku use <skill>                # 安装到 Codex + Claude
     zhiku forge status               # 兼容别名（已弃用）
     zhiku --base http://127.0.0.1:8902/zhiku-api "..."   # 自定义 API base（调试）
@@ -27,7 +29,7 @@ zhiku — 随身智库 · AI 组件市场 CLI（零依赖，python3 stdlib）
 也会自动附「需 env:」行——装前就知道要不要 API key。私有组件(★)无公开深度数据。
 """
 import datetime as dt
-import hashlib, json, math, os, re, subprocess, sys, time, urllib.error, urllib.request, uuid
+import hashlib, json, math, os, re, subprocess, sys, time, urllib.error, urllib.parse, urllib.request, uuid
 from pathlib import Path
 
 BASE = os.environ.get("ZHIKU_API_BASE", "https://os-zk.84000.art/zhiku-api")
@@ -54,6 +56,16 @@ TYPE_HINTS = {
     "skills": ("skill", "skills", "技能"),
 }
 PERMISSION_LEVELS = ("inspect", "draft", "apply", "publish_or_pay")
+
+
+def private_core_root():
+    configured = os.environ.get("ZHIKU_CORE_ROOT")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    try:
+        return Path(__file__).resolve().parents[4]
+    except IndexError:
+        return Path("/")
 
 # 中→英领域词映射（与网页版 AI 助理同源算法）
 ZH2EN = {
@@ -340,6 +352,59 @@ def normalize_recipe(recipe):
     return out
 
 
+def _sensitive_hash(value):
+    return hashlib.sha256(str(value or "").encode("utf-8")).hexdigest()
+
+
+def _safe_url_origin(value):
+    try:
+        parsed = urllib.parse.urlsplit(str(value or ""))
+        return f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else "redacted"
+    except Exception:
+        return "redacted"
+
+
+def receipt_safe_recipe(recipe):
+    safe = dict(recipe)
+    if safe.get("receipt_redaction") != "wechat_agent":
+        return safe
+    target = safe.get("target_url")
+    safe["target_url"] = _safe_url_origin(target)
+    safe["target_url_hash"] = _sensitive_hash(target)
+    fields = safe.pop("draft_fields", [])
+    if fields:
+        safe["draft_field_hashes"] = [
+            {"selector_hash": _sensitive_hash(field.get("selector")), "value_hash": _sensitive_hash(field.get("value"))}
+            for field in fields if isinstance(field, dict)
+        ]
+    return safe
+
+
+def redact_wechat_operation_receipt(receipt):
+    if (receipt.get("recipe") or {}).get("receipt_redaction") != "wechat_agent":
+        return receipt
+    receipt["target_url_hash"] = _sensitive_hash(receipt.get("target_url"))
+    receipt["target_url"] = _safe_url_origin(receipt.get("target_url"))
+    receipt["observations"] = [
+        {
+            "type": str(row.get("type") or "observation"),
+            "value_hash": _sensitive_hash(row.get("value")),
+            "value_length": len(str(row.get("value") or "")),
+        }
+        for row in (receipt.get("observations") or []) if isinstance(row, dict)
+    ]
+    cleaned_actions = []
+    for row in receipt.get("actions_taken") or []:
+        if not isinstance(row, dict):
+            continue
+        clean = {key: value for key, value in row.items() if key not in {"selector", "value"}}
+        if row.get("selector"):
+            clean["selector_hash"] = _sensitive_hash(row["selector"])
+        cleaned_actions.append(clean)
+    receipt["actions_taken"] = cleaned_actions
+    return receipt
+
+
 def default_receipt(recipe, mode, run_id):
     return {
         "schema": "operation_run_receipt_v1",
@@ -359,7 +424,7 @@ def default_receipt(recipe, mode, run_id):
         "evidence_paths": [],
         "started_at": utc_now(),
         "finished_at": None,
-        "recipe": recipe,
+        "recipe": receipt_safe_recipe(recipe),
     }
 
 
@@ -554,6 +619,7 @@ def operate_main(args):
         })
     else:
         receipt = run_ego_operation(recipe, receipt)
+    receipt = redact_wechat_operation_receipt(receipt)
     out = write_receipt(receipt)
     print(json.dumps({
         "ok": receipt["status"] in ("dry_run", "completed", "blocked_apply_not_implemented", "blocked_human_gate", "blocked_needs_user"),
@@ -700,19 +766,27 @@ def deep_text_lines(t, it, deepmaps, want_deep):
 
 def main():
     args = sys.argv[1:]
+    if args and args[0] == "wechat":
+        core_root = private_core_root()
+        module = core_root / "systems/zhiku/wechat_agent/__main__.py"
+        if not module.exists():
+            sys.exit("blocked_private_control_plane_unavailable: set ZHIKU_CORE_ROOT to yuanli-os-starter")
+        env = os.environ.copy()
+        env["ZHIKU_CORE_ROOT"] = str(core_root)
+        raise SystemExit(subprocess.call(
+            [sys.executable, "-m", "systems.zhiku.wechat_agent", "--core-root", str(core_root), *args[1:]],
+            cwd=str(core_root),
+            env=env,
+        ))
     if args and args[0] in {"skill", "use"}:
-        configured = os.environ.get("ZHIKU_CORE_ROOT")
-        embedded = Path(__file__).resolve().parents[4]
-        core_root = Path(configured).expanduser().resolve() if configured else embedded
+        core_root = private_core_root()
         governor = core_root / "systems/zhiku/forge/skill_governor.py"
         if not governor.exists():
             sys.exit("blocked_private_control_plane_unavailable: set ZHIKU_CORE_ROOT to yuanli-os-starter")
         forwarded = args[1:] if args[0] == "skill" else ["install", *args[1:]]
         raise SystemExit(subprocess.call([sys.executable, str(governor), *forwarded]))
     if args and args[0] == "forge":
-        configured = os.environ.get("ZHIKU_CORE_ROOT")
-        embedded = Path(__file__).resolve().parents[4]
-        core_root = Path(configured).expanduser().resolve() if configured else embedded
+        core_root = private_core_root()
         forge = core_root / "systems/zhiku/forge/zhiku_forge.py"
         if not forge.exists():
             sys.exit("blocked_private_control_plane_unavailable: set ZHIKU_CORE_ROOT to yuanli-os-starter")
