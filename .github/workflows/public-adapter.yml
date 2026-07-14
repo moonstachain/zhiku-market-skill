@@ -45,6 +45,7 @@ jobs:
         with:
           repository: moonstachain/yuanli-os-starter
           ref: ${{ steps.source.outputs.commit }}
+          fetch-depth: 0
           ssh-key: ${{ secrets.ZHIKU_CORE_DEPLOY_KEY }}
           path: canonical
           persist-credentials: false
