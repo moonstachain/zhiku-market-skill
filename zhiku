@@ -56,16 +56,112 @@ TYPE_HINTS = {
     "skills": ("skill", "skills", "技能"),
 }
 PERMISSION_LEVELS = ("inspect", "draft", "apply", "publish_or_pay")
+AUTHORING_CORE_BLOCKER = "blocked_authoring_core_untrusted"
+
+
+def _file_sha256(path):
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def _git_read(root, *args):
+    result = subprocess.run(
+        ["git", "-C", str(root), *args],
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return {
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }
+
+
+def _block_authoring_core(reason):
+    raise SystemExit(f"{AUTHORING_CORE_BLOCKER}:{reason}")
+
+
+def _trusted_authoring_core(runtime_root):
+    governor_home = Path(
+        os.environ.get(
+            "ZHIKU_GOVERNOR_HOME",
+            Path.home() / ".local/share/zhiku-skill-governor",
+        )
+    ).expanduser()
+    receipt_path = governor_home / "automation/daily-install-receipt.json"
+    try:
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        metadata = json.loads((runtime_root / "runtime-metadata.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        _block_authoring_core("install_receipt_or_runtime_metadata_missing")
+    if not (
+        receipt.get("schema") == "zhiku_skill_governor_daily_install_receipt_v2"
+        and receipt.get("status") == "installed"
+        and receipt.get("source_dirty") is False
+        and receipt.get("external_writes") is False
+    ):
+        _block_authoring_core("install_receipt_not_trusted")
+    commit = str(metadata.get("commit") or "")
+    if not commit or receipt.get("commit") != commit:
+        _block_authoring_core("install_receipt_commit_mismatch")
+    try:
+        installed_runtime = Path(str(receipt.get("runtime") or "")).expanduser().resolve()
+    except OSError:
+        _block_authoring_core("install_receipt_runtime_invalid")
+    if installed_runtime != runtime_root.resolve():
+        _block_authoring_core("install_receipt_runtime_mismatch")
+    core_root = Path(str(receipt.get("core_root") or "")).expanduser()
+    engine = core_root / "systems/zhiku/forge/skill_governor.py"
+    runtime_engine = runtime_root / "systems/zhiku/forge/skill_governor.py"
+    if not engine.is_file() or not runtime_engine.is_file():
+        _block_authoring_core("authoring_engine_missing")
+    head = _git_read(core_root, "rev-parse", "HEAD")
+    if head["returncode"] != 0:
+        _block_authoring_core("authoring_commit_query_failed")
+    if head["stdout"] != commit:
+        _block_authoring_core("authoring_commit_mismatch")
+    status = _git_read(
+        core_root,
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+    )
+    if status["returncode"] != 0:
+        _block_authoring_core("authoring_status_query_failed")
+    if status["stdout"]:
+        _block_authoring_core("authoring_worktree_dirty")
+    engine_hash = _file_sha256(engine)
+    if not engine_hash or engine_hash != _file_sha256(runtime_engine):
+        _block_authoring_core("authoring_engine_hash_mismatch")
+    if receipt.get("engine_hash") != engine_hash or metadata.get("engine_hash") != engine_hash:
+        _block_authoring_core("authoring_engine_attestation_mismatch")
+    return core_root.resolve()
 
 
 def private_core_root():
+    try:
+        runtime_or_core = Path(__file__).resolve().parents[4]
+    except IndexError:
+        _block_authoring_core("entrypoint_root_unknown")
     configured = os.environ.get("ZHIKU_CORE_ROOT")
     if configured:
-        return Path(configured).expanduser().resolve()
-    try:
-        return Path(__file__).resolve().parents[4]
-    except IndexError:
-        return Path("/")
+        root = Path(configured).expanduser().resolve()
+        if not (root / "systems/zhiku/forge/skill_governor.py").is_file():
+            _block_authoring_core("configured_core_invalid")
+        if (runtime_or_core / "runtime-metadata.json").is_file():
+            trusted = _trusted_authoring_core(runtime_or_core)
+            if root != trusted:
+                _block_authoring_core("configured_core_not_attested")
+        return root
+    if (runtime_or_core / "runtime-metadata.json").is_file():
+        return _trusted_authoring_core(runtime_or_core)
+    if not (runtime_or_core / "systems/zhiku/forge/skill_governor.py").is_file():
+        _block_authoring_core("private_control_plane_unavailable")
+    return runtime_or_core
 
 # 中→英领域词映射（与网页版 AI 助理同源算法）
 ZH2EN = {
@@ -173,27 +269,39 @@ def fetch_usage(base, refresh):
         return {}
 
 
-def send_beacon(query, returned_paths):
+def _client_id():
+    """自愿代号（ZHIKU_CLIENT_ID env，slug 2-24 位）；不设/非法 = 匿名如旧。"""
+    cid = (os.environ.get("ZHIKU_CLIENT_ID") or "").strip().lower()
+    return cid if re.fullmatch(r"[a-z0-9][a-z0-9_-]{1,23}", cid) else ""
+
+
+def send_beacon(query, returned_paths, tool="search", selected=None):
     """Send a best-effort anonymous usage signal after results are printed."""
     if os.environ.get("ZHIKU_NO_TELEMETRY") == "1":
         return
     try:
         q_hash = hashlib.sha256((query or "").strip().lower().encode("utf-8")).hexdigest()[:12]
-        proof_req = urllib.request.Request(PROOF_URL + "?source=cli", headers={"User-Agent": "zhiku-cli/0.4"})
+        proof_req = urllib.request.Request(PROOF_URL + "?source=cli", headers={"User-Agent": "zhiku-cli/0.5"})
         proof = json.loads(urllib.request.urlopen(proof_req, timeout=3).read().decode("utf-8")).get("proof")
         if not proof:
             return
-        body = json.dumps({
-            "tool": "search",
+        payload = {
+            "tool": tool,
             "source": "cli",
             "q_hash": q_hash,
-            "returned": [p for p in returned_paths[:20] if p],
+            "returned": [p for p in (returned_paths or [])[:20] if p],
             "proof": proof,
-        }).encode("utf-8")
+        }
+        if selected:
+            payload["selected"] = selected           # 强信号：CLI 侧的采纳/安装目标 path
+        cid = _client_id()
+        if cid:
+            payload["client_id"] = cid
+        body = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
             BEACON_URL,
             data=body,
-            headers={"Content-Type": "text/plain", "User-Agent": "zhiku-cli/0.4"},
+            headers={"Content-Type": "text/plain", "User-Agent": "zhiku-cli/0.5"},
         )
         urllib.request.urlopen(req, timeout=3)
     except Exception:
@@ -784,7 +892,24 @@ def main():
         if not governor.exists():
             sys.exit("blocked_private_control_plane_unavailable: set ZHIKU_CORE_ROOT to yuanli-os-starter")
         forwarded = args[1:] if args[0] == "skill" else ["install", *args[1:]]
-        raise SystemExit(subprocess.call([sys.executable, str(governor), *forwarded]))
+        rc = subprocess.call(
+            [
+                sys.executable,
+                str(governor),
+                "--core-root",
+                str(core_root),
+                *forwarded,
+            ]
+        )
+        if (
+            rc == 0
+            and forwarded
+            and forwarded[0] == "install"
+            and len(forwarded) > 1
+            and os.environ.get("ZHIKU_INSTALL_BEACON") == "1"
+        ):
+            send_beacon(forwarded[1], [], tool="install")   # 安装成功回流（q_hash=组件名）
+        raise SystemExit(rc)
     if args and args[0] == "forge":
         core_root = private_core_root()
         forge = core_root / "systems/zhiku/forge/zhiku_forge.py"

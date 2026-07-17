@@ -1,25 +1,25 @@
 {
-  "build_id": "zhiku-70a4df30a05444c5",
-  "canonical_commit": "b65eeef66d242ec1a791d1ebb90b3652edbab0fc",
+  "build_id": "zhiku-1175c09b58ad236e",
+  "canonical_commit": "585605d394ab957a4b2e63146ac86cff6d2d802c",
   "canonical_path": "staging/L1/zhiku-market",
   "canonical_repo": "moonstachain/yuanli-os-starter",
-  "canonical_source_hash": "95266863e570301b65dd55afe86c5da07d14279bfde107e0d11a64c7abad2106",
-  "catalog_hash": "6fc5afcb3f5c80c972aed0eeb406d773b8e86947c1b97e7f8478c5483adcda39",
-  "core_commit": "b65eeef66d242ec1a791d1ebb90b3652edbab0fc",
+  "canonical_source_hash": "ce86b201ed3c25bd4154aefe8b52b9e0731c2c6c1b5b5eddcd889fab0fad0c63",
+  "catalog_hash": "d4b25b50eb8c2dcb8446b69ef392efac5ffc4fb3ea3ea69ec7e3bf15e77530d3",
+  "core_commit": "585605d394ab957a4b2e63146ac86cff6d2d802c",
   "distribution": "public",
-  "eval_run_id": "zbe-bd0e2884b054cbb3",
+  "eval_run_id": "zbe-905b536fdf91c69a",
   "files": {
     ".github/workflows/public-adapter.yml": "aee0c87b37257b7ed9934b281779570453eb267d5d1b21fff8ece185338c1779",
     "LICENSE": "2dbc5ea5bba08f2803def3066456354bb592e74d3a331e3e8846047f02269d0f",
     "README.md": "87bab9f151e7cbfe279666185fc1f5ab453744920d0ec54eb51b77180bbf99ba",
-    "SHA256SUMS": "0e58131636a7eeed6e3ed77e790a8bc5606a42c9e44a75d71555d464ca8b3d5d",
+    "SHA256SUMS": "1f146bb55b02fa557f4b73a3ae7fb97539a0e0ddf8a66fb1f5b3d0658ee4456f",
     "SKILL.md": "dd22183bc3ae40633bebbae7cf57b4475d8aadb4fcce3be56ea9f8ca8e2d577a",
     "install.sh": "6aa2426eece6ce7bc0d44f89782ba422aabf2060414f12625c34d0ed9d2c2170",
-    "zhiku": "90480b0fdf3913eb0e3c826f02f3b7b351d1a251b3b3055db5a7a99dd4e36ec1"
+    "zhiku": "c24ed43bab32d38bf1361eaca49196bd4b039a0d1a7b398cdc3f497935549e01"
   },
   "generated_projection": true,
   "manual_edits_forbidden": true,
   "profile_bundle_hash": "54f2c9e0c725ec66196e172771f192d64a245549d1c8b8b81233c04cdec46128",
-  "release_id": "zkr-70a4df30a05444c50282",
+  "release_id": "zkr-1175c09b58ad236e5e77",
   "schema": "zhiku_distribution_source_v1"
 }
