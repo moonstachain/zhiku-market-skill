@@ -57,6 +57,9 @@ TYPE_HINTS = {
 }
 PERMISSION_LEVELS = ("inspect", "draft", "apply", "publish_or_pay")
 AUTHORING_CORE_BLOCKER = "blocked_authoring_core_untrusted"
+SKILL_CANONICAL_ID = re.compile(
+    r"^zk:(?:skill:[a-z0-9]+(?:-[a-z0-9]+)*|skills:[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*)$"
+)
 
 
 def _file_sha256(path):
@@ -194,6 +197,9 @@ ZH2EN = {
 "上线": ["deploy", "launch", "release"], "发布": ["release", "publish", "deploy"],
 "测试": ["test", "testing", "qa", "e2e"], "调试": ["debug", "debugging", "troubleshoot"],
 "重构": ["refactor", "refactoring"], "审查": ["review", "audit"], "代码审查": ["code-review", "review"],
+"盘点": ["inventory", "audit"], "治理": ["governance", "governor", "audit"],
+"生态": ["skill", "ecology", "catalog"], "蒸馏": ["distill", "distillation", "extract"],
+"调用": ["usage", "invocation", "route", "routing"],
 "安全": ["security", "vulnerability", "audit"], "漏洞": ["vulnerability", "security", "exploit"],
 "性能": ["performance", "optimize", "speed"], "优化": ["optimize", "optimization", "performance"],
 "翻译": ["translate", "translation", "i18n"], "多语言": ["i18n", "localization", "translation"],
@@ -306,6 +312,103 @@ def send_beacon(query, returned_paths, tool="search", selected=None):
         urllib.request.urlopen(req, timeout=3)
     except Exception:
         pass
+
+
+def _routing_receipt_root():
+    configured = os.environ.get("ZHIKU_USAGE_RECEIPT_HOME")
+    if configured:
+        return Path(configured).expanduser()
+    governor_home = Path(
+        os.environ.get(
+            "ZHIKU_GOVERNOR_HOME",
+            Path.home() / ".local/share/zhiku-skill-governor",
+        )
+    ).expanduser()
+    return governor_home / "usage-inbox"
+
+
+def _routing_canonical_id(t, it, profiles):
+    if t != "skills":
+        return ""
+    profile = profile_for(t, it, profiles)
+    canonical_id = str(
+        profile.get("canonical_id") or it.get("canonical_id") or ""
+    )
+    if SKILL_CANONICAL_ID.fullmatch(canonical_id):
+        return canonical_id
+    name = re.sub(
+        r"[^a-z0-9]+",
+        "-",
+        str(it.get("name") or "").strip().lower(),
+    ).strip("-")
+    fallback = f"zk:skill:{name}" if name else ""
+    return fallback if SKILL_CANONICAL_ID.fullmatch(fallback) else ""
+
+
+def write_routing_receipts(query, hits, profiles):
+    """Persist privacy-minimized local recommendation exposure receipts.
+
+    The query and task identifiers are hashed and never stored. A caller may
+    provide ``ZHIKU_USAGE_EVENT_ID`` to make retries of the same routing event
+    idempotent; otherwise each CLI invocation is a new recommendation event.
+    """
+    if os.environ.get("ZHIKU_NO_LOCAL_USAGE_RECEIPTS") == "1":
+        return []
+    event_source = os.environ.get("ZHIKU_USAGE_EVENT_ID") or (
+        f"route:{utc_now()}:{os.getpid()}:{uuid.uuid4().hex}"
+    )
+    task_source = os.environ.get("ZHIKU_TASK_ID") or re.sub(
+        r"\s+", " ", str(query or "").strip().lower()
+    )
+    task_hash = hashlib.sha256(task_source.encode("utf-8")).hexdigest()[:16]
+    occurred_at = utc_now()
+    root = _routing_receipt_root()
+    written = []
+    for rank, (_, t, it) in enumerate(hits, 1):
+        canonical_id = _routing_canonical_id(t, it, profiles)
+        if not canonical_id:
+            continue
+        event_hash = hashlib.sha256(
+            f"{event_source}|{canonical_id}".encode("utf-8")
+        ).hexdigest()[:16]
+        receipt_key = json.dumps(
+            {
+                "canonical_id": canonical_id,
+                "client": "zhiku_cli",
+                "event_hash": event_hash,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        receipt_id = "zkur2-" + hashlib.sha256(
+            receipt_key.encode("utf-8")
+        ).hexdigest()[:16]
+        receipt = {
+            "schema": "skill_usage_receipt_v2",
+            "receipt_id": receipt_id,
+            "occurred_at": occurred_at,
+            "canonical_id": canonical_id,
+            "client": "zhiku_cli",
+            "event_hash": event_hash,
+            "task_hash": task_hash,
+            "task_type": "skill-routing",
+            "event": "recommended",
+            "note": f"router recommendation rank={rank}",
+            "duration_ms": None,
+            "raw_conversation_stored": False,
+        }
+        target = root / f"{receipt_id}.json"
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+            with target.open("x", encoding="utf-8") as stream:
+                json.dump(receipt, stream, ensure_ascii=False, indent=2)
+                stream.write("\n")
+        except FileExistsError:
+            pass
+        except OSError:
+            continue
+        written.append(str(target))
+    return written
 
 
 def fetch_deep(base, t, refresh):
@@ -987,6 +1090,7 @@ def main():
                 row["deep"] = {k: v for k, v in r.items() if k not in ("name", "path")}
             rows.append(row)
         print(json.dumps(rows, ensure_ascii=False, indent=1))
+        write_routing_receipts(query, hits, profiles)
         send_beacon(query, [it.get("path") for _, _, it in hits])
         return
     if not hits:
@@ -1020,6 +1124,7 @@ def main():
             print(f"    {instruction}\n")
         else:
             print(f"    $ {instruction}\n")
+    write_routing_receipts(query, hits, profiles)
     send_beacon(query, [it.get("path") for _, _, it in hits])
 
 
