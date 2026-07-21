@@ -1,25 +1,25 @@
 {
-  "build_id": "zhiku-bb3df9000955a417",
-  "canonical_commit": "65a7009d9e1e334ac86de78d85b9097622ccac4b",
+  "build_id": "zhiku-7478dff0e728796b",
+  "canonical_commit": "b8eea70df7b7bac581cbe84bad153e430f57ec25",
   "canonical_path": "staging/L1/zhiku-market",
   "canonical_repo": "moonstachain/yuanli-os-starter",
-  "canonical_source_hash": "ce86b201ed3c25bd4154aefe8b52b9e0731c2c6c1b5b5eddcd889fab0fad0c63",
-  "catalog_hash": "dd8fef95af9e767ceafae15bcc984b068169638781c9c3e559b40597db71c966",
-  "core_commit": "65a7009d9e1e334ac86de78d85b9097622ccac4b",
+  "canonical_source_hash": "d148814f887e9fb7b64d4092199364b6eef89f960884ed1665a805e2a9d6ed69",
+  "catalog_hash": "24dee6c23a1da6c704093dd3d165215085cd3ed0e0ca2695ce61116474b29b02",
+  "core_commit": "b8eea70df7b7bac581cbe84bad153e430f57ec25",
   "distribution": "public",
-  "eval_run_id": "zbe-cef2e2e02ddad9ec",
+  "eval_run_id": "zbe-7cb73b6914cc35dd",
   "files": {
     ".github/workflows/public-adapter.yml": "aee0c87b37257b7ed9934b281779570453eb267d5d1b21fff8ece185338c1779",
     "LICENSE": "2dbc5ea5bba08f2803def3066456354bb592e74d3a331e3e8846047f02269d0f",
     "README.md": "87bab9f151e7cbfe279666185fc1f5ab453744920d0ec54eb51b77180bbf99ba",
-    "SHA256SUMS": "1f146bb55b02fa557f4b73a3ae7fb97539a0e0ddf8a66fb1f5b3d0658ee4456f",
+    "SHA256SUMS": "7613224eb948ca1c2d54c461745f371584260ac538213686451fe9c872b61469",
     "SKILL.md": "dd22183bc3ae40633bebbae7cf57b4475d8aadb4fcce3be56ea9f8ca8e2d577a",
     "install.sh": "6aa2426eece6ce7bc0d44f89782ba422aabf2060414f12625c34d0ed9d2c2170",
-    "zhiku": "c24ed43bab32d38bf1361eaca49196bd4b039a0d1a7b398cdc3f497935549e01"
+    "zhiku": "b0a72db95682718b699b5914dea8cbba3c5b8cc84ab7ddb2aeeaca1e108132fb"
   },
   "generated_projection": true,
   "manual_edits_forbidden": true,
-  "profile_bundle_hash": "54f2c9e0c725ec66196e172771f192d64a245549d1c8b8b81233c04cdec46128",
-  "release_id": "zkr-bb3df9000955a4176565",
+  "profile_bundle_hash": "190d399b4731fc5e53cb946c74ad783f08a448c7b017f64509604572b34ef9fb",
+  "release_id": "zkr-7478dff0e728796bf210",
   "schema": "zhiku_distribution_source_v1"
 }
