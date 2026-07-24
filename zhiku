@@ -15,6 +15,12 @@ zhiku — 随身智库 · AI 组件市场 CLI（零依赖，python3 stdlib）
     zhiku skill discover             # 发现本地/任务/GitHub Skill 变化
     zhiku skill inbox                # 最多显示 5 个治理决策
     zhiku skill capture ...          # 显式沉淀当前成功工作
+    zhiku route human-review         # 生成30个真实历史任务的脱敏人工评审板
+    zhiku route human-review-record  # 记录一项脱敏人工路由决策
+    zhiku route human-review-import  # 严格导入驾驶舱导出的最多10项决策
+    zhiku route shadow-readiness     # 只读检查14日影子计时前置条件
+    zhiku instrumentation audit      # 只读核验四客户端本地回执链
+    zhiku instrumentation plan       # 生成需授权、可回滚的启用计划
     zhiku wechat preflight           # 私有本机微信 Agent 通道预检
     zhiku wechat status              # 私有控制面状态（公开包仅安全委派）
     zhiku use <skill>                # 安装到 Codex + Claude
@@ -42,7 +48,21 @@ CACHE = os.path.join(CACHE_DIR, "catalog.json")
 PROFILE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "profiles")
 WORKSPACE = Path(os.environ.get("ZHIKU_WORKSPACE", Path.home() / ".local" / "share" / "zhiku"))
 MAX_ROOT = Path(os.environ.get("ZHIKU_MAX_ROOT", WORKSPACE / "strategic-projects" / "zhiku-market-max"))
-OPERATE_RECEIPTS = MAX_ROOT / "receipts" / "operate"
+GOVERNOR_HOME = Path(
+    os.environ.get(
+        "ZHIKU_GOVERNOR_HOME",
+        os.environ.get(
+            "ZHIKU_SKILL_HOME",
+            Path.home() / ".local" / "share" / "zhiku-skill-governor",
+        ),
+    )
+)
+OPERATE_RECEIPTS = Path(
+    os.environ.get(
+        "ZHIKU_OPERATE_RECEIPTS",
+        GOVERNOR_HOME / "receipts" / "operate",
+    )
+)
 TTL = 24 * 3600
 TYPES = ("skills", "agents", "commands", "mcps", "settings", "hooks")
 FLAGS = {"skills": "--skill", "agents": "--agent", "commands": "--command",
@@ -50,9 +70,9 @@ FLAGS = {"skills": "--skill", "agents": "--agent", "commands": "--command",
 TYPE_HINTS = {
     "mcps": ("mcp", "mcps", "connector", "连接器"),
     "hooks": ("hook", "hooks", "钩子"),
-    "settings": ("setting", "settings"),
-    "agents": ("agent", "agents", "subagent", "智能体", "子代理"),
-    "commands": ("command", "commands", "slash command", "斜杠命令"),
+    "settings": ("setting", "settings", "配置", "设置"),
+    "agents": ("agent", "agents", "subagent", "智能体", "子代理", "代理"),
+    "commands": ("command", "commands", "slash command", "斜杠命令", "命令", "指令"),
     "skills": ("skill", "skills", "技能"),
 }
 PERMISSION_LEVELS = ("inspect", "draft", "apply", "publish_or_pay")
@@ -207,6 +227,10 @@ ZH2EN = {
 "转录": ["transcribe", "transcription", "whisper"], "音频": ["audio", "sound"], "音乐": ["music", "audio"],
 "播客": ["podcast", "audio"], "字幕": ["subtitle", "caption", "srt"], "直播": ["live", "stream", "streaming"],
 "研究": ["research", "analysis"], "调研": ["research", "survey", "investigate"],
+"产品": ["product"], "产品战略": ["product", "strategy", "strategist", "roadmap", "positioning"],
+"战略": ["strategy", "strategist", "roadmap", "planning"], "路线图": ["roadmap", "planning"],
+"优先级": ["priority", "prioritization"], "市场分析": ["market", "analysis", "research"],
+"竞争分析": ["competitive", "analysis", "intelligence"],
 "论文": ["paper", "academic", "research", "arxiv"], "总结": ["summary", "summarize"],
 "摘要": ["summary", "abstract"], "笔记": ["note", "notes", "obsidian"],
 "知识库": ["knowledge", "wiki", "notebook"], "记忆": ["memory", "recall"],
@@ -345,12 +369,19 @@ def _routing_canonical_id(t, it, profiles):
     return fallback if SKILL_CANONICAL_ID.fullmatch(fallback) else ""
 
 
-def write_routing_receipts(query, hits, profiles):
+def write_routing_receipts(query, hits, profiles, evolution_note=None):
     """Persist privacy-minimized local recommendation exposure receipts.
 
     The query and task identifiers are hashed and never stored. A caller may
     provide ``ZHIKU_USAGE_EVENT_ID`` to make retries of the same routing event
     idempotent; otherwise each CLI invocation is a new recommendation event.
+
+    ``evolution_note`` is the optional third ring of the SOUL evidence loop
+    (no Evolution Note -> no Done): a short reusable lesson from this routing
+    event. It is written into every receipt of the event when provided and
+    omitted otherwise. Returns the receipt file paths written (or already
+    present, for idempotent retries), so callers can honestly verify evidence
+    backflow per candidate from the receipts on disk.
     """
     if os.environ.get("ZHIKU_NO_LOCAL_USAGE_RECEIPTS") == "1":
         return []
@@ -397,6 +428,8 @@ def write_routing_receipts(query, hits, profiles):
             "duration_ms": None,
             "raw_conversation_stored": False,
         }
+        if evolution_note:
+            receipt["evolution_note"] = str(evolution_note)[:500]
         target = root / f"{receipt_id}.json"
         try:
             root.mkdir(parents=True, exist_ok=True)
@@ -404,11 +437,86 @@ def write_routing_receipts(query, hits, profiles):
                 json.dump(receipt, stream, ensure_ascii=False, indent=2)
                 stream.write("\n")
         except FileExistsError:
-            pass
+            # Idempotent retry: the receipt already exists on disk, so the
+            # evidence backflow for this candidate is still real.
+            written.append(str(target))
+            continue
         except OSError:
             continue
         written.append(str(target))
     return written
+
+
+def _telemetry_client():
+    """Return the consent-gated private client without affecting routing."""
+    try:
+        core_root = private_core_root()
+        if str(core_root) not in sys.path:
+            sys.path.insert(0, str(core_root))
+        from systems.zhiku.telemetry.client import TelemetryClient
+        client = TelemetryClient()
+        return client if client.enabled() else None
+    except (Exception, SystemExit):
+        return None
+
+
+def write_component_telemetry(query, hits):
+    """Record the all-component eligibility/recommendation funnel privately."""
+    client = _telemetry_client()
+    if client is None:
+        return
+    type_map = {
+        "skills": "skill", "agents": "agent", "commands": "command",
+        "mcps": "mcp", "settings": "setting", "hooks": "hook",
+    }
+    try:
+        from systems.zhiku.telemetry.client import classify_task_locally
+        task_type = classify_task_locally(query)
+        candidates = [
+            (type_map[t], str(it.get("name") or it.get("path") or "unknown"))
+            for _, t, it in hits if t in type_map
+        ]
+        client.record_eligibility(
+            task_source=query, task_type=task_type, candidates=candidates,
+            completeness="complete", reason="observed" if candidates else "no_applicable_component",
+            client="zhiku_cli", client_version="0.5",
+        )
+        for component_type, canonical_id in candidates:
+            client.record_usage(
+                component_type=component_type, canonical_id=canonical_id,
+                task_source=query, task_type=task_type, event="recommended",
+                client="zhiku_cli", client_version="0.5",
+            )
+    except Exception:
+        pass
+
+
+def write_cli_action_telemetry(command, target, outcome=None):
+    client = _telemetry_client()
+    if client is None:
+        return
+    try:
+        task_source = f"zhiku:{command}:{target}"
+        event = outcome or "invoked"
+        client.record_usage(
+            component_type="command", canonical_id=f"zhiku/{command}",
+            task_source=task_source, task_type="operations", event=event,
+            result_evidence="technical_execution" if event == "success" else "none",
+            error_class="client_error" if event == "failure" else None,
+            client="zhiku_cli", client_version="0.5",
+        )
+        if command == "install" and target:
+            skill_events = ["selected", "invoked"] if outcome is None else [event]
+            for skill_event in skill_events:
+                client.record_usage(
+                    component_type="skill", canonical_id=target,
+                    task_source=task_source, task_type="operations", event=skill_event,
+                    result_evidence="technical_execution" if skill_event == "success" else "none",
+                    error_class="client_error" if skill_event == "failure" else None,
+                    client="zhiku_cli", client_version="0.5",
+                )
+    except Exception:
+        pass
 
 
 def fetch_deep(base, t, refresh):
@@ -490,13 +598,159 @@ def max_mode_for(t, it, profile):
     return "route"
 
 
-def three_seals_for(t, it, profile):
-    status = ((profile or {}).get("how_to_use") or {}).get("status") or ("private_channel" if it.get("mine") else "remote_install")
-    validation = ((profile or {}).get("validation") or {}).get("state") or "unknown"
+def confidence_grade(profile):
+    """Dual-track confidence label aligned with canon: 🟢 direct vs 🟡 inferred.
+
+    🟢 (直证) requires observed evidence on the profile: a green validation
+    state or recorded local usage. Everything else is 🟡 (推断). The 0-1
+    decimal ranks candidates; the grade governs decision display. Never
+    present a bare decimal behind a green badge without this check.
+    """
+    profile = profile or {}
+    validation = ((profile.get("validation") or {}).get("state") or "")
+    usage = profile.get("usage") or {}
+    try:
+        observed = float(usage.get("local_calls") or 0) > 0
+    except (TypeError, ValueError):
+        observed = False
+    if validation in ("validated", "pass", "green") or observed:
+        return "🟢"
+    return "🟡"
+
+
+# Canonical Three Seals (yuanli-os-greenbook A01/A07): recursive evolution /
+# skill commander (先 search 再 call) / human friendliness. "Global optimum"
+# is NOT a seal; it remains the internal ordering principle of route mode.
+GLOBAL_OPTIMUM_ORDERING_NOTE = (
+    "全局最优不是三法印；它是 route 模式内部的排序原则："
+    "最小可靠路由优先，本地可用 > 远程安装 > 无证据不推荐。"
+)
+_GATE_WORDS = ("人工", "审批", "确认", "权限", "approval", "review")
+
+
+def _seal(status, detail):
+    return {"status": status, "detail": detail}
+
+
+def three_seals_for(t, it, profile, context=None):
+    """Per-candidate real check of the canonical Three Seals.
+
+    ``context`` records what the caller actually did for this recommendation:
+      - ``search_performed``: {"catalog": bool, "local_profiles": bool} —
+        whether the catalog / local profiles were really searched first;
+      - ``receipts_written``: iterable of canonical ids that received a
+        usage receipt in this routing event;
+      - ``canonical_id``: this candidate's canonical id;
+      - ``next_step``: the exact next-step text emitted to the user.
+
+    Missing context means unverified, which reports ``warn`` — fail-closed,
+    never a decorative green template. Returns one dict per seal with
+    ``status`` in {"pass", "warn"} plus an ``overall`` rollup.
+    """
+    context = context or {}
+    profile = profile or {}
+    status = ((profile.get("how_to_use") or {}).get("status")
+              or ("private_channel" if it.get("mine") else "remote_install"))
+    validation = ((profile.get("validation") or {}).get("state") or "unknown")
+    risk = profile.get("risk_signals") or []
+    usage = profile.get("usage") or {}
+    try:
+        local_calls = float(usage.get("local_calls") or 0)
+    except (TypeError, ValueError):
+        local_calls = 0.0
+
+    # Seal 2 — skill commander: search before call.
+    search = context.get("search_performed")
+    if isinstance(search, dict):
+        catalog_searched = bool(search.get("catalog"))
+        profiles_searched = bool(search.get("local_profiles"))
+        if catalog_searched or profiles_searched:
+            commander = _seal(
+                "pass",
+                f"推荐前已检索：目录={'是' if catalog_searched else '否'}，"
+                f"本地 profiles={'是' if profiles_searched else '否'}（先 search 再 call）",
+            )
+        else:
+            commander = _seal("warn", "已记录检索上下文但目录与本地 profiles 均未命中检索；先 search 再 call 未达成")
+    else:
+        commander = _seal("warn", "无检索证据记录；无法核实是否先 search 再 call")
+
+    # Seal 1 — recursive evolution: evidence backflow for this candidate.
+    canonical_id = str(context.get("canonical_id") or "")
+    receipt_ids = set(context.get("receipts_written") or [])
+    if canonical_id and canonical_id in receipt_ids:
+        evolution = _seal("pass", f"本次路由已为 {canonical_id} 写入 usage receipt，证据回流成立")
+    elif validation in ("validated", "pass", "green"):
+        evolution = _seal("pass", f"profile 已有验证证据（state={validation}），使用后应刷新")
+    elif local_calls > 0:
+        evolution = _seal("pass", f"profile 已有本地调用记录（{int(local_calls)} 次），使用后应刷新")
+    else:
+        evolution = _seal("warn", "本候选无 receipt/验证/用量回流；按 internal-dry-run 对待，禁止呈现为已验证")
+
+    # Seal 3 — human friendliness: only human-decision items, gates intact.
+    needs_gate = (
+        t in ("hooks", "settings")
+        or status == "private_channel"
+        or (bool(risk) and status != "local_installed")
+    )
+    next_step = str(context.get("next_step") or "")
+    if needs_gate:
+        if next_step and any(word in next_step for word in _GATE_WORDS):
+            friendly = _seal("pass", f"高暴露面（{status}）已挂人工门，仅呈现需人决策项")
+        else:
+            friendly = _seal("warn", "高暴露面候选的对外文案未核实人工门；不得直接呈现安装/执行指令")
+    else:
+        burden = "本地已装，直接调用" if status == "local_installed" else "远程候选，安装前给出一项人工确认"
+        friendly = _seal("pass", f"低负担路由：{burden}；无不可逆外部写入")
+
+    seals = {
+        "recursive_evolution": evolution,
+        "skill_commander": commander,
+        "human_friendliness": friendly,
+    }
+    seals["overall"] = (
+        "pass"
+        if all(seal["status"] == "pass" for seal in seals.values())
+        else "warn"
+    )
+    return seals
+
+
+def backwrite_for(t, it, profile, context=None):
+    """Required MAX output field 回流 (backwrite): where evidence must flow.
+
+    The contract is fail-closed: the field is always present, and when no
+    backwrite target exists it says so explicitly with a reason instead of
+    omitting the field or inventing one.
+    """
+    context = context or {}
+    profile = profile or {}
+    canonical_id = str(context.get("canonical_id") or "")
+    receipt_ids = set(context.get("receipts_written") or [])
+    if canonical_id and canonical_id in receipt_ids:
+        return {
+            "target": "usage_receipt",
+            "reason": f"本次路由已为 {canonical_id} 写入 skill_usage_receipt_v2",
+        }
+    validation = ((profile.get("validation") or {}).get("state") or "")
+    usage = profile.get("usage") or {}
+    try:
+        local_calls = float(usage.get("local_calls") or 0)
+    except (TypeError, ValueError):
+        local_calls = 0.0
+    if validation in ("validated", "pass", "green") or local_calls > 0:
+        return {
+            "target": "profile",
+            "reason": "profile 已有验证/用量证据；本次使用结果应回流刷新该 profile",
+        }
+    if t in ("hooks", "settings") or (profile.get("risk_signals") or []):
+        return {
+            "target": "risk_item",
+            "reason": "高暴露面且零用量证据；安装前应在风险/决策板登记一项人工复核",
+        }
     return {
-        "recursive_evolution": "记录使用结果到 profile/receipt/self-assess，失败也回流为风险或验证缺口",
-        "global_optimum": f"当前状态 {status}，验证 {validation}；优先本地可用，其次远程安装候选",
-        "human_friendliness": "外部写入和 hooks/settings 安装保持审批；私有组件不输出公开安装命令",
+        "target": "none",
+        "reason": "无回流目标：候选无 profile 验证、无用量、本次未写入 receipt；先完成真实检索与试用再推荐",
     }
 
 
@@ -570,19 +824,43 @@ def _sensitive_hash(value):
 def _safe_url_origin(value):
     try:
         parsed = urllib.parse.urlsplit(str(value or ""))
-        return f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else "redacted"
+        if not parsed.scheme or not parsed.hostname:
+            return "redacted"
+        host = parsed.hostname
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        port = f":{parsed.port}" if parsed.port else ""
+        return f"{parsed.scheme}://{host}{port}"
     except Exception:
         return "redacted"
 
 
 def receipt_safe_recipe(recipe):
-    safe = dict(recipe)
-    if safe.get("receipt_redaction") != "wechat_agent":
-        return safe
-    target = safe.get("target_url")
+    target = recipe.get("target_url")
+    intent = recipe.get("intent")
+    component_path = recipe.get("component_path")
+    source_intent_hash = str(recipe.get("source_intent_hash") or "")
+    if not re.fullmatch(r"[0-9a-f]{64}", source_intent_hash, re.I):
+        source_intent_hash = _sensitive_hash(source_intent_hash) if source_intent_hash else None
+    safe = {
+        "schema": "operation_recipe_v1",
+        "executor": recipe.get("executor"),
+        "permission_level": recipe.get("permission_level"),
+        "allow_apply": recipe.get("allow_apply") is True,
+        "apply_implemented": recipe.get("apply_implemented") is True,
+        "static_h5_executes_browser": recipe.get("static_h5_executes_browser") is True,
+        "receipt_redaction": "wechat_agent" if recipe.get("receipt_redaction") == "wechat_agent" else "default",
+        "source_intent_hash": source_intent_hash,
+        "planned_step_count": len(recipe.get("planned_steps") or []),
+        "checkpoint_count": len(recipe.get("checkpoints") or []),
+        "risk_tag_count": len(recipe.get("risk_tags") or []),
+        "component_ref_hash": _sensitive_hash(component_path) if component_path else None,
+    }
     safe["target_url"] = _safe_url_origin(target)
     safe["target_url_hash"] = _sensitive_hash(target)
-    fields = safe.pop("draft_fields", [])
+    safe["intent_hash"] = _sensitive_hash(intent)
+    safe["intent_length"] = len(str(intent or ""))
+    fields = recipe.get("draft_fields") or []
     if fields:
         safe["draft_field_hashes"] = [
             {"selector_hash": _sensitive_hash(field.get("selector")), "value_hash": _sensitive_hash(field.get("value"))}
@@ -591,14 +869,26 @@ def receipt_safe_recipe(recipe):
     return safe
 
 
-def redact_wechat_operation_receipt(receipt):
-    if (receipt.get("recipe") or {}).get("receipt_redaction") != "wechat_agent":
-        return receipt
+def _safe_blocker(value):
+    text = str(value or "")
+    if re.fullmatch(r"[a-z0-9_:-]{1,120}", text):
+        return text
+    return "opaque_error:" + _sensitive_hash(text)[:16]
+
+
+def redact_operation_receipt(receipt):
     receipt["target_url_hash"] = _sensitive_hash(receipt.get("target_url"))
     receipt["target_url"] = _safe_url_origin(receipt.get("target_url"))
+    intent = receipt.pop("intent", "")
+    receipt["intent_hash"] = _sensitive_hash(intent)
+    receipt["intent_length"] = len(str(intent or ""))
+    component_path = receipt.pop("component_path", None)
+    receipt["component_ref_hash"] = _sensitive_hash(component_path) if component_path else None
+    task_space_id = receipt.pop("task_space_id", None)
+    receipt["task_space_id_hash"] = _sensitive_hash(task_space_id) if task_space_id else None
     receipt["observations"] = [
         {
-            "type": str(row.get("type") or "observation"),
+            "type": _safe_blocker(row.get("type") or "observation"),
             "value_hash": _sensitive_hash(row.get("value")),
             "value_length": len(str(row.get("value") or "")),
         }
@@ -608,11 +898,28 @@ def redact_wechat_operation_receipt(receipt):
     for row in receipt.get("actions_taken") or []:
         if not isinstance(row, dict):
             continue
-        clean = {key: value for key, value in row.items() if key not in {"selector", "value"}}
+        clean = {
+            "type": _safe_blocker(row.get("type") or "action"),
+            "submitted": row.get("submitted") is True,
+            "keep": row.get("keep") is True,
+        }
         if row.get("selector"):
             clean["selector_hash"] = _sensitive_hash(row["selector"])
         cleaned_actions.append(clean)
     receipt["actions_taken"] = cleaned_actions
+    receipt["blockers"] = [_safe_blocker(value) for value in receipt.get("blockers") or []]
+    receipt["handoff_events"] = [
+        {
+            "type": _safe_blocker(row.get("type") or "handoff"),
+            "reason_hash": _sensitive_hash(row.get("reason")),
+        }
+        for row in receipt.get("handoff_events") or []
+        if isinstance(row, dict)
+    ]
+    receipt["evidence_paths"] = [f"operate:{receipt.get('run_id')}"]
+    receipt["raw_observations_stored"] = False
+    receipt["local_paths_stored"] = False
+    receipt["raw_conversation_stored"] = False
     return receipt
 
 
@@ -658,7 +965,7 @@ def update_operate_governance(receipt):
         "status": "review",
         "priority": "P0",
         "evidence_refs": [f"operate:{run_id}"],
-        "last_receipt": str(OPERATE_RECEIPTS / f"{run_id}.json"),
+        "last_receipt": f"operate:{run_id}",
     }
     actions[:] = [a for a in actions if a.get("id") != "A6"] + [action]
     write_json_file(action_path, action_doc)
@@ -671,7 +978,7 @@ def update_operate_governance(receipt):
         "title": "网页自动操作必须维持 ego task space 隔离与人工门",
         "level": "amber",
         "mitigation": "H5 只生成 operation_recipe_v1；本地 zhiku operate 执行，apply 默认阻断，publish_or_pay 永远 handoff。",
-        "last_receipt": str(OPERATE_RECEIPTS / f"{run_id}.json"),
+        "last_receipt": f"operate:{run_id}",
     }
     risks[:] = [r for r in risks if r.get("id") != "R4"] + [risk]
     write_json_file(risk_path, risk_doc)
@@ -683,7 +990,7 @@ def update_operate_governance(receipt):
             "status": "receipt_recorded_surface_rebuild_required",
             "last_execution_status": status,
             "executor": receipt.get("executor"),
-            "last_receipt": str(OPERATE_RECEIPTS / f"{run_id}.json"),
+            "last_receipt": f"operate:{run_id}",
             "receipt_count": len(latest_receipts),
             "permission_level": receipt.get("permission_level"),
             "static_h5_executes_browser": False,
@@ -702,7 +1009,7 @@ def write_receipt(receipt):
     OPERATE_RECEIPTS.mkdir(parents=True, exist_ok=True)
     out = OPERATE_RECEIPTS / f"{receipt['run_id']}.json"
     write_json_file(out, receipt)
-    receipt["evidence_paths"] = sorted(set((receipt.get("evidence_paths") or []) + [str(out)]))
+    receipt["evidence_paths"] = [f"operate:{receipt['run_id']}"]
     write_json_file(out, receipt)
     update_operate_governance(receipt)
     return out
@@ -830,7 +1137,7 @@ def operate_main(args):
         })
     else:
         receipt = run_ego_operation(recipe, receipt)
-    receipt = redact_wechat_operation_receipt(receipt)
+    receipt = redact_operation_receipt(receipt)
     out = write_receipt(receipt)
     print(json.dumps({
         "ok": receipt["status"] in ("dry_run", "completed", "blocked_apply_not_implemented", "blocked_human_gate", "blocked_needs_user"),
@@ -975,8 +1282,46 @@ def deep_text_lines(t, it, deepmaps, want_deep):
     return out
 
 
+def normalize_governance_aliases(args):
+    """Map human-facing governance commands onto the private control plane."""
+    if len(args) < 2:
+        return args
+    aliases = {
+        ("task", "contract"): "task-contract",
+        ("route", "plan"): "route-plan",
+        ("route", "verify"): "route-verify",
+        ("route", "human-review"): "route-human-review",
+        ("route", "human-review-record"): "route-human-review-record",
+        ("route", "human-review-import"): "route-human-review-import",
+        ("route", "shadow-record"): "route-shadow-record",
+        ("route", "shadow-status"): "route-shadow-status",
+        ("route", "shadow-readiness"): "route-shadow-readiness",
+        ("agent", "gap"): "agent-gap",
+        ("skill", "rerank"): "skill-rerank",
+        ("adapter", "audit"): "adapter-audit",
+        ("hook", "audit"): "hook-audit",
+        ("instrumentation", "audit"): "instrumentation-audit",
+        ("instrumentation", "plan"): "instrumentation-plan",
+        ("instrumentation", "activate"): "instrumentation-activate",
+        ("ecology", "report"): "ecology-report",
+    }
+    command = aliases.get((args[0], args[1]))
+    return ["skill", command, *args[2:]] if command else args
+
+
 def main():
-    args = sys.argv[1:]
+    args = normalize_governance_aliases(sys.argv[1:])
+    if args and args[0] == "telemetry":
+        core_root = private_core_root()
+        module = core_root / "systems/zhiku/telemetry/__main__.py"
+        if not module.exists():
+            sys.exit("blocked_private_control_plane_unavailable: set ZHIKU_CORE_ROOT to yuanli-os-starter")
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(core_root) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+        raise SystemExit(subprocess.call(
+            [sys.executable, "-m", "systems.zhiku.telemetry", *args[1:]],
+            cwd=str(core_root), env=env,
+        ))
     if args and args[0] == "wechat":
         core_root = private_core_root()
         module = core_root / "systems/zhiku/wechat_agent/__main__.py"
@@ -995,6 +1340,9 @@ def main():
         if not governor.exists():
             sys.exit("blocked_private_control_plane_unavailable: set ZHIKU_CORE_ROOT to yuanli-os-starter")
         forwarded = args[1:] if args[0] == "skill" else ["install", *args[1:]]
+        telemetry_command = forwarded[0] if forwarded else "unknown"
+        telemetry_target = forwarded[1] if len(forwarded) > 1 else ""
+        write_cli_action_telemetry(telemetry_command, telemetry_target)
         rc = subprocess.call(
             [
                 sys.executable,
@@ -1012,6 +1360,9 @@ def main():
             and os.environ.get("ZHIKU_INSTALL_BEACON") == "1"
         ):
             send_beacon(forwarded[1], [], tool="install")   # 安装成功回流（q_hash=组件名）
+        write_cli_action_telemetry(
+            telemetry_command, telemetry_target, "success" if rc == 0 else "failure"
+        )
         raise SystemExit(rc)
     if args and args[0] == "forge":
         core_root = private_core_root()
@@ -1060,6 +1411,26 @@ def main():
     # deep 索引按需懒加载: --deep 拉命中的全部类型; 默认只拉 mcps(装前 env 需求最关键且文件最小)
     need = {t for _, t, it in hits if not it.get("mine") and (want_deep or t == "mcps")}
     deepmaps = {t: fetch_deep(base, t, refresh) for t in need}
+    # Evidence first: write routing receipts before presenting results so the
+    # Three Seals can honestly report per-candidate evidence backflow.
+    evolution_note = (os.environ.get("ZHIKU_EVOLUTION_NOTE") or "").strip() or None
+    receipt_paths = write_routing_receipts(query, hits, profiles, evolution_note=evolution_note)
+    # Derive the per-candidate backflow set from the receipts on disk: a
+    # canonical id counts only when its receipt file is readable, so a failed
+    # or skipped write can never masquerade as evidence.
+    receipt_ids = set()
+    for receipt_path in receipt_paths:
+        try:
+            payload = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        canonical_id = payload.get("canonical_id")
+        if canonical_id:
+            receipt_ids.add(canonical_id)
+    search_ctx = {
+        "catalog": bool(catalog),
+        "local_profiles": any(bool(profiles.get(t)) for t in TYPES),
+    }
     if as_json:
         rows = []
         for s, t, it in hits:
@@ -1079,18 +1450,28 @@ def main():
                     "governance_flags": p.get("governance_flags"),
                 }
             if max_mode:
+                confidence = confidence_for(s, p)
+                next_step = next_step_for(t, it, p)
+                seal_ctx = {
+                    "search_performed": search_ctx,
+                    "receipts_written": receipt_ids,
+                    "canonical_id": _routing_canonical_id(t, it, profiles),
+                    "next_step": next_step,
+                }
                 row["max"] = {
-                    "confidence": confidence_for(s, p),
+                    "confidence": confidence,
+                    "confidence_grade": confidence_grade(p),
                     "mode": max_mode_for(t, it, p),
-                    "three_seals": three_seals_for(t, it, p),
-                    "next_step": next_step_for(t, it, p),
+                    "three_seals": three_seals_for(t, it, p, seal_ctx),
+                    "backwrite": backwrite_for(t, it, p, seal_ctx),
+                    "next_step": next_step,
                 }
             r = deep_record(t, it, deepmaps)
             if r:
                 row["deep"] = {k: v for k, v in r.items() if k not in ("name", "path")}
             rows.append(row)
         print(json.dumps(rows, ensure_ascii=False, indent=1))
-        write_routing_receipts(query, hits, profiles)
+        write_component_telemetry(query, hits)
         send_beacon(query, [it.get("path") for _, _, it in hits])
         return
     if not hits:
@@ -1112,19 +1493,32 @@ def main():
         if risk:
             print("    profile 风险: " + ", ".join(risk if isinstance(risk, list) else [str(risk)]))
         if max_mode:
-            print(f"    MAX 置信度: {confidence_for(s, p):.2f} · 模式: {max_mode_for(t, it, p)} · tier: {p.get('max_recommendation_tier', 'unknown')}")
-            seals = three_seals_for(t, it, p)
+            confidence = confidence_for(s, p)
+            grade = confidence_grade(p)
+            grade_label = "直证" if grade == "🟢" else "推断"
+            next_step = next_step_for(t, it, p)
+            seal_ctx = {
+                "search_performed": search_ctx,
+                "receipts_written": receipt_ids,
+                "canonical_id": _routing_canonical_id(t, it, profiles),
+                "next_step": next_step,
+            }
+            print(f"    MAX 置信度: {confidence:.2f} {grade}{grade_label} · 模式: {max_mode_for(t, it, p)} · tier: {p.get('max_recommendation_tier', 'unknown')}")
+            seals = three_seals_for(t, it, p, seal_ctx)
             print("    三法印:")
-            print("      递归进化: " + seals["recursive_evolution"])
-            print("      全局最优: " + seals["global_optimum"])
-            print("      人类友好: " + seals["human_friendliness"])
-            print("    下一步: " + next_step_for(t, it, p))
+            print(f"      递归进化: [{seals['recursive_evolution']['status']}] {seals['recursive_evolution']['detail']}")
+            print(f"      技能统帅: [{seals['skill_commander']['status']}] {seals['skill_commander']['detail']}")
+            print(f"      人类友好: [{seals['human_friendliness']['status']}] {seals['human_friendliness']['detail']}")
+            print("    " + GLOBAL_OPTIMUM_ORDERING_NOTE)
+            backwrite = backwrite_for(t, it, p, seal_ctx)
+            print(f"    回流: {backwrite['target']} — {backwrite['reason']}")
+            print("    下一步: " + next_step)
         instruction = use_instruction(t, it, p)
         if it.get("mine"):
             print(f"    {instruction}\n")
         else:
             print(f"    $ {instruction}\n")
-    write_routing_receipts(query, hits, profiles)
+    write_component_telemetry(query, hits)
     send_beacon(query, [it.get("path") for _, _, it in hits])
 
 
