@@ -1,0 +1,107 @@
+{
+  "schema": "capability_profile_v1",
+  "built_at": "2026-07-11T14:39:20+08:00",
+  "profile_hash_format": "indexed-v2",
+  "source": {
+    "api_base": "https://os-zk.84000.art/zhiku-api",
+    "source_dir": null,
+    "source_dir_redacted": true,
+    "catalog_built": "2026-07-11T14:39:20+08:00",
+    "build_id": null,
+    "catalog_hash": "9639a92bfb807377b02d9ebdc5886292b5acd65562d30145348a8c9a238f1c5b",
+    "identity_registry_hash": "777a6d6a3926f98c5f4a709d9bd378266156255db7b1ac636b29343db157b49b",
+    "validation_registry_hash": "9527ae364273f62d28c86ddc5c7e6817cddeddca7ebffec31745a1b10d798836",
+    "total": 2099,
+    "counts": {
+      "agents": 421,
+      "commands": 281,
+      "hooks": 57,
+      "mcps": 86,
+      "settings": 68,
+      "skills": 1186
+    },
+    "validation_registry": {
+      "schema": "zhiku_validation_registry_v1",
+      "built": "2026-07-11T14:39:20+08:00",
+      "summary": {
+        "total": 2099,
+        "priority": 479,
+        "top_100": 100,
+        "high_risk": 379,
+        "metadata_contract_checked": 479,
+        "fully_validated": 384,
+        "production_observed": 0,
+        "by_risk": {
+          "critical": 172,
+          "high": 207,
+          "medium": 84,
+          "low": 1636
+        },
+        "by_review_result": {
+          "pass": 305,
+          "warn": 174,
+          "fail": 0,
+          "not_in_priority_cohort": 1620
+        }
+      }
+    }
+  },
+  "type_files": {
+    "skills": "skills.json",
+    "agents": "agents.json",
+    "commands": "commands.json",
+    "mcps": "mcps.json",
+    "settings": "settings.json",
+    "hooks": "hooks.json"
+  },
+  "catalog_count": 2099,
+  "profiled_count": 2099,
+  "excluded_count": 0,
+  "exclusions": [],
+  "input_hashes": {
+    "catalog": "9639a92bfb807377b02d9ebdc5886292b5acd65562d30145348a8c9a238f1c5b",
+    "identity_registry": "777a6d6a3926f98c5f4a709d9bd378266156255db7b1ac636b29343db157b49b",
+    "validation_registry": "9527ae364273f62d28c86ddc5c7e6817cddeddca7ebffec31745a1b10d798836",
+    "usage": "a31779c7e1d67bc805e27de5d145b4cc60e4c1537089994f6c972f64383ec5ae",
+    "local_telemetry_analysis": null,
+    "metabolism": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "self_assess_audit": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "self_assess_decision_board": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "identity_conflicts": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "lifecycle_v2": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "local_overlay": {
+    "enabled": false,
+    "installed_name_count": 0,
+    "ambiguous_identity_names": 0,
+    "telemetry_components": 0,
+    "telemetry_status": "unmeasured"
+  },
+  "self_assess": {
+    "root": null,
+    "root_redacted": true,
+    "date": null,
+    "as_of": null,
+    "total": null,
+    "grade": null,
+    "axes": [],
+    "decision_board_open": 0,
+    "decision_outcome": 0,
+    "trend": null,
+    "history_tail": [],
+    "surfaces": {
+      "root_redacted": true,
+      "audit_json": "audit.json",
+      "self_assess_html": "self-assess.html",
+      "roadmap_html": "zhiku-market-roadmap.html"
+    }
+  },
+  "privacy": {
+    "source_content_included": false,
+    "secret_values_included": false,
+    "private_component_bodies_included": false
+  },
+  "profile_shards_hash": "04d0c622028a750df6c7164b1d55a0ace8e99b69265d642ecf7c3bc5f943e88e",
+  "profile_index_hash": "31f5d96fa3b29fb9b6334965f99743739214283169f42415f0ed3bcab3a30254",
+  "profile_bundle_hash": "2ceb21492715e6c37019abd22dbb9bb3c0b277f44e5824a1cbbc083baaf7b14c"
+}
