@@ -8,9 +8,9 @@
     "source_dir_redacted": true,
     "catalog_built": "2026-07-11T14:39:20+08:00",
     "build_id": null,
-    "catalog_hash": "3f221caaf6e94c7a8a11c2bff1b665e1c0d36d8271b3bc25249acf31aa533e68",
-    "identity_registry_hash": "777a6d6a3926f98c5f4a709d9bd378266156255db7b1ac636b29343db157b49b",
-    "validation_registry_hash": "43f19758b27518bc4751fb94733cb6dbf252bbe254bd9b817e80e92f0b012ca0",
+    "catalog_hash": "4b1169ffea04664f4331cd906bd98183252d568dad5ffaa4441611178446dec4",
+    "identity_registry_hash": "50ce241e5663d0abea80b695a863b4717f213f9a5dc6cb58e94dc76fbdf0793a",
+    "validation_registry_hash": "457a08b52e4f651ed4cae34b5315d6a425835ac646ad2bc16089ebcf2575e430",
     "total": 2099,
     "counts": {
       "agents": 421,
@@ -29,7 +29,7 @@
         "top_100": 100,
         "high_risk": 379,
         "metadata_contract_checked": 479,
-        "fully_validated": 384,
+        "fully_validated": 385,
         "production_observed": 0,
         "by_risk": {
           "critical": 172,
@@ -59,10 +59,10 @@
   "excluded_count": 0,
   "exclusions": [],
   "input_hashes": {
-    "catalog": "3f221caaf6e94c7a8a11c2bff1b665e1c0d36d8271b3bc25249acf31aa533e68",
-    "identity_registry": "777a6d6a3926f98c5f4a709d9bd378266156255db7b1ac636b29343db157b49b",
-    "validation_registry": "43f19758b27518bc4751fb94733cb6dbf252bbe254bd9b817e80e92f0b012ca0",
-    "usage": "fad5c6b3b5e9c8cf233b111fea38da490a2ce6251e1a21c934cd76b98d75c640",
+    "catalog": "4b1169ffea04664f4331cd906bd98183252d568dad5ffaa4441611178446dec4",
+    "identity_registry": "50ce241e5663d0abea80b695a863b4717f213f9a5dc6cb58e94dc76fbdf0793a",
+    "validation_registry": "457a08b52e4f651ed4cae34b5315d6a425835ac646ad2bc16089ebcf2575e430",
+    "usage": "6e6e9c9f680a9883692380ca8d08011d69495d9e1ade0262d0fe06dfce1af69b",
     "local_telemetry_analysis": null,
     "metabolism": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
     "self_assess_audit": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
@@ -101,7 +101,7 @@
     "secret_values_included": false,
     "private_component_bodies_included": false
   },
-  "profile_shards_hash": "75ea4d2e74100ddf87c9dd326a82bb4a4d0d9557ad1bee943e5e7ad72c5dd1e7",
-  "profile_index_hash": "66d0ea882a561c8619b323666f42dbb5667859eb406881993f07fc396c4dc91e",
-  "profile_bundle_hash": "bab4d2848a9778056b604fee42bbdb2337fb8640ee91407dbacff59d17cc6989"
+  "profile_shards_hash": "8e6f201f024c95722eaddbff162eb5b41f709157220a68faab9c4ecd703ba66d",
+  "profile_index_hash": "64124d27528efabb07f47d5e7e0624c3f62ea5a1b4ffec717a3ad08cc1327cf5",
+  "profile_bundle_hash": "c1b488d6564166bfc44b2906746a8bcc5c8acbe1e3172cdb6f8963c8c23c40de"
 }
