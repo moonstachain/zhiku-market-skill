@@ -286446,11 +286446,11 @@
       "preconditions": {},
       "risk_signals": [],
       "validation": {
-        "state": "unverified",
-        "functional": "unknown",
-        "security": "unknown",
-        "validated_at": null,
-        "receipt_count": 0,
+        "state": "validated",
+        "functional": "passed",
+        "security": "sandbox_passed",
+        "validated_at": "2026-08-09T06:22:30+00:00",
+        "receipt_count": 1,
         "risk_assessment": {
           "tier": "low",
           "tags": [],
@@ -286515,10 +286515,10 @@
         "lifecycle": null,
         "retire_candidate": null
       },
-      "maturity_stage": "seed",
+      "maturity_stage": "real-case-draft",
       "atomicity_score": 6,
       "maturity": {
-        "stage": "seed",
+        "stage": "real-case-draft",
         "human_gate": false,
         "human_gate_required_for": [
           "active",
@@ -286528,7 +286528,8 @@
         "heuristic": true,
         "heuristic_cap": "repeatability-pilot-passed",
         "basis": [
-          "default_seed_no_evidence"
+          "default_seed_no_evidence",
+          "receipt_backed_validation"
         ],
         "standard": "soul:docs/YUANLI-SKILL-ATOMICITY-STANDARD-v1.md"
       },
@@ -286542,12 +286543,12 @@
           "input": 0,
           "steps": 0,
           "output": 0,
-          "rubric": 1,
+          "rubric": 2,
           "evidence": 1,
           "gap": 0,
           "writeback": 0,
           "human_gate": 1,
-          "next_c4": 1,
+          "next_c4": 0,
           "privacy": 1
         },
         "heuristic": true,
@@ -286609,11 +286610,11 @@
           "retire_candidate": null
         },
         "functional_security_validation": {
-          "state": "unverified",
-          "functional": "unknown",
-          "security": "unknown",
-          "validated_at": null,
-          "receipt_count": 0,
+          "state": "validated",
+          "functional": "passed",
+          "security": "sandbox_passed",
+          "validated_at": "2026-08-09T06:22:30+00:00",
+          "receipt_count": 1,
           "risk_assessment": {
             "tier": "low",
             "tags": [],
@@ -286685,11 +286686,10 @@
       },
       "tools": null,
       "dependencies": [],
-      "routing_confidence": 0.39,
-      "max_recommendation_tier": "C",
+      "routing_confidence": 0.61,
+      "max_recommendation_tier": "B",
       "governance_flags": [
         "private_metadata_only",
-        "validation_unverified",
         "deep_metadata_missing"
       ],
       "cockpit_metrics": {
@@ -286709,7 +286709,7 @@
         "uncalled_reason": "unmeasured",
         "efficiency_status": "unmeasured",
         "risk_count": 0,
-        "validation_state": "unverified"
+        "validation_state": "validated"
       }
     },
     {
@@ -298093,24 +298093,33 @@
       "name": "brainstorming",
       "type": "skills",
       "path": "yuanli-os-starter/brainstorming",
-      "canonical_id": "zk:skills:yuanli-os-starter/brainstorming",
-      "projection_id": null,
+      "canonical_id": "zk:skill:brainstorming",
+      "projection_id": "zk:skills:yuanli-os-starter/brainstorming",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "brainstorming",
         "brainstorming@skills:yuanli-os-starter",
-        "yuanli-os-starter/brainstorming"
+        "yuanli-os-starter/brainstorming",
+        "zk:skills:yuanli-os-starter/brainstorming"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 8,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "881fc4ac82a25e61a58d332426b5673efe060da0"
+        },
+        "package_tree_sha256": "b29f0c4068279fb924ef3a467682d23be68700f90ca59990bba35c24088fd55e",
+        "skill_sha256": "74edf03ea6d24ef53db48677b93558d14a979bdf052ca3f57ecdca0c66791608"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
@@ -298196,7 +298205,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/brainstorming",
+          "effective_canonical_id": "zk:skill:brainstorming",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -298248,7 +298257,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -298289,7 +298298,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/brainstorming",
+            "effective_canonical_id": "zk:skill:brainstorming",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
@@ -306425,24 +306434,33 @@
       "name": "dispatching-parallel-agents",
       "type": "skills",
       "path": "yuanli-os-starter/dispatching-parallel-agents",
-      "canonical_id": "zk:skills:yuanli-os-starter/dispatching-parallel-agents",
-      "projection_id": null,
+      "canonical_id": "zk:skill:dispatching-parallel-agents",
+      "projection_id": "zk:skills:yuanli-os-starter/dispatching-parallel-agents",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "dispatching-parallel-agents",
         "dispatching-parallel-agents@skills:yuanli-os-starter",
-        "yuanli-os-starter/dispatching-parallel-agents"
+        "yuanli-os-starter/dispatching-parallel-agents",
+        "zk:skills:yuanli-os-starter/dispatching-parallel-agents"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 1,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "15697cb0726c26a66bff737494e8b5266667ba0c"
+        },
+        "package_tree_sha256": "1acb899b23c2bdb5af5961e7b97ba43fb2a5593822db755747ef3d5db9f825a4",
+        "skill_sha256": "1968923066f3b707eb01d1992cdf4c42284c3855f70253b9cd5000ff45fca13c"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
@@ -306528,7 +306546,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/dispatching-parallel-agents",
+          "effective_canonical_id": "zk:skill:dispatching-parallel-agents",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -306580,7 +306598,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -306621,7 +306639,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/dispatching-parallel-agents",
+            "effective_canonical_id": "zk:skill:dispatching-parallel-agents",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
@@ -313536,24 +313554,33 @@
       "name": "executing-plans",
       "type": "skills",
       "path": "yuanli-os-starter/executing-plans",
-      "canonical_id": "zk:skills:yuanli-os-starter/executing-plans",
-      "projection_id": null,
+      "canonical_id": "zk:skill:executing-plans",
+      "projection_id": "zk:skills:yuanli-os-starter/executing-plans",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "executing-plans",
         "executing-plans@skills:yuanli-os-starter",
-        "yuanli-os-starter/executing-plans"
+        "yuanli-os-starter/executing-plans",
+        "zk:skills:yuanli-os-starter/executing-plans"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 1,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "1484ffb29998ba1db2a7b6bf0e641081eb8612e9"
+        },
+        "package_tree_sha256": "5036191743cbb55b8665ddf0d6b89daad668525adf28291fe1054e86e01972d9",
+        "skill_sha256": "c4c3d8b628c51114cd165fb8246fe02744cd8be180032328391252e653028d9b"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
@@ -313639,7 +313666,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/executing-plans",
+          "effective_canonical_id": "zk:skill:executing-plans",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -313691,7 +313718,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -313732,7 +313759,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/executing-plans",
+            "effective_canonical_id": "zk:skill:executing-plans",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
@@ -316111,32 +316138,41 @@
       "name": "finishing-a-development-branch",
       "type": "skills",
       "path": "yuanli-os-starter/finishing-a-development-branch",
-      "canonical_id": "zk:skills:yuanli-os-starter/finishing-a-development-branch",
-      "projection_id": null,
+      "canonical_id": "zk:skill:finishing-a-development-branch",
+      "projection_id": "zk:skills:yuanli-os-starter/finishing-a-development-branch",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "finishing-a-development-branch",
         "finishing-a-development-branch@skills:yuanli-os-starter",
-        "yuanli-os-starter/finishing-a-development-branch"
+        "yuanli-os-starter/finishing-a-development-branch",
+        "zk:skills:yuanli-os-starter/finishing-a-development-branch"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 1,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "3b1205aa5038c71946077dd63b9e71b447729e70"
+        },
+        "package_tree_sha256": "1da9182001d887c0fb8c62aeee35c8f65b438b32a30b79104baedcca9e0ebef6",
+        "skill_sha256": "8db5a922b242dd4e1bf824cb91c13b3e8d8e8a86d6ceaf7f0774eb9cce909d65"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
       "category": "yuanli-os-starter",
       "private": true,
-      "human_summary": "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work - guides completion of development work by presenting structured options for merge, PR, or cleanup",
+      "human_summary": "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work",
       "when_to_use": [
-        "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work - guides completion of development work by presenting structured options for merge, PR, or cleanup"
+        "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work"
       ],
       "inputs": [],
       "outputs": [
@@ -316214,7 +316250,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/finishing-a-development-branch",
+          "effective_canonical_id": "zk:skill:finishing-a-development-branch",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -316266,7 +316302,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -316307,7 +316343,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/finishing-a-development-branch",
+            "effective_canonical_id": "zk:skill:finishing-a-development-branch",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
@@ -359688,24 +359724,33 @@
       "name": "receiving-code-review",
       "type": "skills",
       "path": "yuanli-os-starter/receiving-code-review",
-      "canonical_id": "zk:skills:yuanli-os-starter/receiving-code-review",
-      "projection_id": null,
+      "canonical_id": "zk:skill:receiving-code-review",
+      "projection_id": "zk:skills:yuanli-os-starter/receiving-code-review",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "receiving-code-review",
         "receiving-code-review@skills:yuanli-os-starter",
-        "yuanli-os-starter/receiving-code-review"
+        "yuanli-os-starter/receiving-code-review",
+        "zk:skills:yuanli-os-starter/receiving-code-review"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 1,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "b5e154fc3ec7a6a0b1e710eebacc2168620cc428"
+        },
+        "package_tree_sha256": "e5dd23be2d93f751c8b28d647c4b139754aedfe75648cd8e1100e47f5da0c3c5",
+        "skill_sha256": "091df1629510af1b92fc4abd6f96732ebedb4cb2c0f3457e8f2740b0504a2438"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
@@ -359791,7 +359836,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/receiving-code-review",
+          "effective_canonical_id": "zk:skill:receiving-code-review",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -359843,7 +359888,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -359884,7 +359929,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/receiving-code-review",
+            "effective_canonical_id": "zk:skill:receiving-code-review",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
@@ -360960,24 +361005,33 @@
       "name": "requesting-code-review",
       "type": "skills",
       "path": "yuanli-os-starter/requesting-code-review",
-      "canonical_id": "zk:skills:yuanli-os-starter/requesting-code-review",
-      "projection_id": null,
+      "canonical_id": "zk:skill:requesting-code-review",
+      "projection_id": "zk:skills:yuanli-os-starter/requesting-code-review",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "requesting-code-review",
         "requesting-code-review@skills:yuanli-os-starter",
-        "yuanli-os-starter/requesting-code-review"
+        "yuanli-os-starter/requesting-code-review",
+        "zk:skills:yuanli-os-starter/requesting-code-review"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 2,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "2ef6b5734813e7504d9866a7ec1ae89b505bfe70"
+        },
+        "package_tree_sha256": "f6b7bba1eac5267f0c317cf9e9bbfea3ab7ead130b1285cc79f66611232cd96f",
+        "skill_sha256": "d71cc01ba56d2325cf8af5f7c11837819b63ecd57de0bfdb812f7f3ff7751df8"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
@@ -361086,7 +361140,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/requesting-code-review",
+          "effective_canonical_id": "zk:skill:requesting-code-review",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -361139,7 +361193,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -361180,7 +361234,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/requesting-code-review",
+            "effective_canonical_id": "zk:skill:requesting-code-review",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
@@ -368531,24 +368585,33 @@
       "name": "subagent-driven-development",
       "type": "skills",
       "path": "yuanli-os-starter/subagent-driven-development",
-      "canonical_id": "zk:skills:yuanli-os-starter/subagent-driven-development",
-      "projection_id": null,
+      "canonical_id": "zk:skill:subagent-driven-development",
+      "projection_id": "zk:skills:yuanli-os-starter/subagent-driven-development",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "subagent-driven-development",
         "subagent-driven-development@skills:yuanli-os-starter",
-        "yuanli-os-starter/subagent-driven-development"
+        "yuanli-os-starter/subagent-driven-development",
+        "zk:skills:yuanli-os-starter/subagent-driven-development"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 7,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "8133f2b10d4e71e73d867f2e2e365e0778ff0e4e"
+        },
+        "package_tree_sha256": "bf8c42f7b88b3a595f6b2384d82ab5be3e3e658df474f95012556af0c60dacac",
+        "skill_sha256": "8dd1b8e698edec3700c6d89517dbe96febd3bacd3f6ea21c1a3569c62ea104b5"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
@@ -368634,7 +368697,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/subagent-driven-development",
+          "effective_canonical_id": "zk:skill:subagent-driven-development",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -368686,7 +368749,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -368727,7 +368790,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/subagent-driven-development",
+            "effective_canonical_id": "zk:skill:subagent-driven-development",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
@@ -369208,24 +369271,33 @@
       "name": "systematic-debugging",
       "type": "skills",
       "path": "yuanli-os-starter/systematic-debugging",
-      "canonical_id": "zk:skills:yuanli-os-starter/systematic-debugging",
-      "projection_id": null,
+      "canonical_id": "zk:skill:systematic-debugging",
+      "projection_id": "zk:skills:yuanli-os-starter/systematic-debugging",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "systematic-debugging",
         "systematic-debugging@skills:yuanli-os-starter",
-        "yuanli-os-starter/systematic-debugging"
+        "yuanli-os-starter/systematic-debugging",
+        "zk:skills:yuanli-os-starter/systematic-debugging"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 11,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "ab83fc82f82582e047d96fc516bac9bc03095ee0"
+        },
+        "package_tree_sha256": "e4263f70f52de0286442ea874f8d10c874b65e8e08af20595b6b241d996915f5",
+        "skill_sha256": "808fc5717aa88ad65efff312b11c186294d3e6ee301afb584e2f86599b137787"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
@@ -369311,7 +369383,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/systematic-debugging",
+          "effective_canonical_id": "zk:skill:systematic-debugging",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -369363,7 +369435,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -369404,7 +369476,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/systematic-debugging",
+            "effective_canonical_id": "zk:skill:systematic-debugging",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
@@ -370150,24 +370222,33 @@
       "name": "test-driven-development",
       "type": "skills",
       "path": "yuanli-os-starter/test-driven-development",
-      "canonical_id": "zk:skills:yuanli-os-starter/test-driven-development",
-      "projection_id": null,
+      "canonical_id": "zk:skill:test-driven-development",
+      "projection_id": "zk:skills:yuanli-os-starter/test-driven-development",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "test-driven-development",
         "test-driven-development@skills:yuanli-os-starter",
-        "yuanli-os-starter/test-driven-development"
+        "yuanli-os-starter/test-driven-development",
+        "zk:skills:yuanli-os-starter/test-driven-development"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 2,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "a82cf8b413600c6bd7c4b482272d7990e9588cf1"
+        },
+        "package_tree_sha256": "0ff8639af929add22342c8fbd7accfd26529c64c9998e2b65e78dfe73e19b48c",
+        "skill_sha256": "bf1b8216e523851a411e91d429a7c1c2a173e79d88957bc78e348218d50edd54"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
@@ -370276,7 +370357,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/test-driven-development",
+          "effective_canonical_id": "zk:skill:test-driven-development",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -370329,7 +370410,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -370370,7 +370451,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/test-driven-development",
+            "effective_canonical_id": "zk:skill:test-driven-development",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
@@ -370511,32 +370592,41 @@
       "name": "using-git-worktrees",
       "type": "skills",
       "path": "yuanli-os-starter/using-git-worktrees",
-      "canonical_id": "zk:skills:yuanli-os-starter/using-git-worktrees",
-      "projection_id": null,
+      "canonical_id": "zk:skill:using-git-worktrees",
+      "projection_id": "zk:skills:yuanli-os-starter/using-git-worktrees",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "using-git-worktrees",
         "using-git-worktrees@skills:yuanli-os-starter",
-        "yuanli-os-starter/using-git-worktrees"
+        "yuanli-os-starter/using-git-worktrees",
+        "zk:skills:yuanli-os-starter/using-git-worktrees"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 1,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "d2b8357b922667a091bfe967840abf5ae84ce99c"
+        },
+        "package_tree_sha256": "98dc7da4ead1fe3c523c7ac314082f1f85114ad5e6ec39d4426b4a7f76ed9d0c",
+        "skill_sha256": "8cfb86f121269e8f7f12361e6795c4f6738828340e28964c9229d365666c9edd"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
       "category": "yuanli-os-starter",
       "private": true,
-      "human_summary": "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - creates isolated git worktrees with smart directory selection and safety verification",
+      "human_summary": "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - ensures an isolated workspace exists via native tools or git worktree fallback",
       "when_to_use": [
-        "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - creates isolated git worktrees with smart directory selection and safety verification"
+        "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - ensures an isolated workspace exists via native tools or git worktree fallback"
       ],
       "inputs": [],
       "outputs": [
@@ -370614,7 +370704,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/using-git-worktrees",
+          "effective_canonical_id": "zk:skill:using-git-worktrees",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -370666,7 +370756,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -370707,7 +370797,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/using-git-worktrees",
+            "effective_canonical_id": "zk:skill:using-git-worktrees",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
@@ -370825,32 +370915,41 @@
       "name": "using-superpowers",
       "type": "skills",
       "path": "yuanli-os-starter/using-superpowers",
-      "canonical_id": "zk:skills:yuanli-os-starter/using-superpowers",
-      "projection_id": null,
+      "canonical_id": "zk:skill:using-superpowers",
+      "projection_id": "zk:skills:yuanli-os-starter/using-superpowers",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "using-superpowers",
         "using-superpowers@skills:yuanli-os-starter",
-        "yuanli-os-starter/using-superpowers"
+        "yuanli-os-starter/using-superpowers",
+        "zk:skills:yuanli-os-starter/using-superpowers"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 6,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "e8e3b9ddf73018fdc48d188b12ba654e7363de9f"
+        },
+        "package_tree_sha256": "8e951150631a6709d37eb9fffbbaa5b4d6b4ecb4867e105367790d64ec8082eb",
+        "skill_sha256": "30f2ab78e20ddc27ee7158ae8d4a2abe161c360981c7cc3548070913142d3dc3"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
       "category": "yuanli-os-starter",
       "private": true,
-      "human_summary": "Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions",
+      "human_summary": "Use when starting any conversation - establishes how to find and use skills, requiring skill invocation before ANY response including clarifying questions",
       "when_to_use": [
-        "Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions"
+        "Use when starting any conversation - establishes how to find and use skills, requiring skill invocation before ANY response including clarifying questions"
       ],
       "inputs": [],
       "outputs": [
@@ -370928,7 +371027,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/using-superpowers",
+          "effective_canonical_id": "zk:skill:using-superpowers",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -370980,7 +371079,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -371021,7 +371120,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/using-superpowers",
+            "effective_canonical_id": "zk:skill:using-superpowers",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
@@ -371505,24 +371604,33 @@
       "name": "verification-before-completion",
       "type": "skills",
       "path": "yuanli-os-starter/verification-before-completion",
-      "canonical_id": "zk:skills:yuanli-os-starter/verification-before-completion",
-      "projection_id": null,
+      "canonical_id": "zk:skill:verification-before-completion",
+      "projection_id": "zk:skills:yuanli-os-starter/verification-before-completion",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "verification-before-completion",
         "verification-before-completion@skills:yuanli-os-starter",
-        "yuanli-os-starter/verification-before-completion"
+        "yuanli-os-starter/verification-before-completion",
+        "zk:skills:yuanli-os-starter/verification-before-completion"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 1,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "a4cb0b69aaefeab540947a7f1642bdaad810e37a"
+        },
+        "package_tree_sha256": "d8a53168f152b6163bd3447f7d4c20b6b4cddf6bd907f9aa5856b514c032db0e",
+        "skill_sha256": "2befe7fc55bcadaa3d97dd9e8efeb633d2561c0ebe74c5a8b17c4d9e7e4520b3"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
@@ -371631,7 +371739,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/verification-before-completion",
+          "effective_canonical_id": "zk:skill:verification-before-completion",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -371684,7 +371792,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -371725,7 +371833,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/verification-before-completion",
+            "effective_canonical_id": "zk:skill:verification-before-completion",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
@@ -376332,24 +376440,33 @@
       "name": "writing-plans",
       "type": "skills",
       "path": "yuanli-os-starter/writing-plans",
-      "canonical_id": "zk:skills:yuanli-os-starter/writing-plans",
-      "projection_id": null,
+      "canonical_id": "zk:skill:writing-plans",
+      "projection_id": "zk:skills:yuanli-os-starter/writing-plans",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "writing-plans",
         "writing-plans@skills:yuanli-os-starter",
-        "yuanli-os-starter/writing-plans"
+        "yuanli-os-starter/writing-plans",
+        "zk:skills:yuanli-os-starter/writing-plans"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 2,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "e4d3c3faf3853a453016cece5de2ca0581807742"
+        },
+        "package_tree_sha256": "e0dd3fe342b24c3a0b4d8800f5b313e4e5b81d9eb1ee0e57adee7f90fb57a2fe",
+        "skill_sha256": "48508f44bbfd7d24b029fbf3a314f3cd14c9615599059366e922f47b8dc08cf2"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
@@ -376435,7 +376552,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/writing-plans",
+          "effective_canonical_id": "zk:skill:writing-plans",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -376487,7 +376604,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -376528,7 +376645,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/writing-plans",
+            "effective_canonical_id": "zk:skill:writing-plans",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
@@ -376646,24 +376763,33 @@
       "name": "writing-skills",
       "type": "skills",
       "path": "yuanli-os-starter/writing-skills",
-      "canonical_id": "zk:skills:yuanli-os-starter/writing-skills",
-      "projection_id": null,
+      "canonical_id": "zk:skill:writing-skills",
+      "projection_id": "zk:skills:yuanli-os-starter/writing-skills",
       "source": {
-        "kind": "private_repo",
+        "kind": "private_external",
         "locator": "metadata-only"
       },
-      "version": "unversioned",
+      "version": "6.3.0",
       "aliases": [
         "writing-skills",
         "writing-skills@skills:yuanli-os-starter",
-        "yuanli-os-starter/writing-skills"
+        "yuanli-os-starter/writing-skills",
+        "zk:skills:yuanli-os-starter/writing-skills"
       ],
       "related_canonical_ids": [],
-      "source_commit": null,
-      "distribution_class": null,
+      "source_commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+      "distribution_class": "external_upstream_suite",
       "source_access": null,
-      "source_integrity": null,
-      "projection_class": null,
+      "source_integrity": {
+        "package_file_count": 7,
+        "package_tree": {
+          "algorithm": "git-sha1",
+          "oid": "1768f7552ec98fc6b06aeea747a0c4ef6bde0473"
+        },
+        "package_tree_sha256": "36da006f1b8402200fcae0f6c0edfac3220eb16fe015b75dc81d16caf6505d7e",
+        "skill_sha256": "d34db5c8aed6a4e0440132bd0613aace70a693ec7819d5637ad77481d8e10d1b"
+      },
+      "projection_class": "full_package",
       "install_availability": null,
       "install_policy": null,
       "tombstone": false,
@@ -376749,7 +376875,7 @@
         "uncalled_reason": "unmeasured",
         "identity_attribution": {
           "status": "none",
-          "effective_canonical_id": "zk:skills:yuanli-os-starter/writing-skills",
+          "effective_canonical_id": "zk:skill:writing-skills",
           "original_canonical_ids": [],
           "redirected_original_canonical_ids": [],
           "source_record_count": 0,
@@ -376801,7 +376927,7 @@
         "provenance": {
           "state": "official",
           "source": {
-            "kind": "private_repo",
+            "kind": "private_external",
             "locator": "metadata-only"
           }
         },
@@ -376842,7 +376968,7 @@
           "uncalled_reason": "unmeasured",
           "identity_attribution": {
             "status": "none",
-            "effective_canonical_id": "zk:skills:yuanli-os-starter/writing-skills",
+            "effective_canonical_id": "zk:skill:writing-skills",
             "original_canonical_ids": [],
             "redirected_original_canonical_ids": [],
             "source_record_count": 0,
