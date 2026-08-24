@@ -42,7 +42,7 @@ BASE = os.environ.get("ZHIKU_API_BASE", "https://os-zk.84000.art/zhiku-api")
 BEACON_URL = os.environ.get("ZHIKU_BEACON_URL", "https://os-zk.84000.art/zhiku-mcp/event")
 PROOF_URL = os.environ.get("ZHIKU_EVENT_PROOF_URL", "https://os-zk.84000.art/zhiku-mcp/event-proof")
 # match.py / H5 / CLI must move together. The deploy generator refuses drift.
-SCORE_FORMULA_VERSION = "lex-v2-usage"
+SCORE_FORMULA_VERSION = "lex-v3-suite-usage"
 CACHE_DIR = os.path.expanduser("~/.cache/zhiku")
 CACHE = os.path.join(CACHE_DIR, "catalog.json")
 PROFILE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "profiles")
@@ -1195,12 +1195,18 @@ def score_all(q, catalog, only_type=None, profiles=None, usage=None):
             continue
         for it in catalog.get(t, []):
             name = (it.get("name") or "").lower()
+            suite = f"{it.get('suite_name') or ''} {it.get('suite_id') or ''}".lower()
             cat = (it.get("category") or "").lower()
             desc = (it.get("description") or "").lower()
             sc, hits = 0.0, 0
             for words, w in ((en, 1), (grams, 1), (segs, 1.5), (ex, 0.8)):
                 for tok in words:
-                    h = (5 if tok in name else 0) + (2 if tok in cat else 0) + (1 if tok in desc else 0)
+                    h = (
+                        (5 if tok in name else 0)
+                        + (5 if tok in suite else 0)
+                        + (2 if tok in cat else 0)
+                        + (1 if tok in desc else 0)
+                    )
                     if h:
                         sc += h * w
                         hits += 1
