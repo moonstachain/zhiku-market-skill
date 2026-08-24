@@ -2,7 +2,7 @@
   "_meta": {
     "schema": "capability_profile_v1",
     "type": "skills",
-    "count": 1186,
+    "count": 1188,
     "built": "2026-07-11T14:39:20+08:00"
   },
   "items": [
@@ -386248,6 +386248,320 @@
     },
     {
       "schema": "capability_profile_v1",
+      "name": "yuanli-health-care-operator",
+      "type": "skills",
+      "path": "yuanli-os-starter/yuanli-health-care-operator",
+      "canonical_id": "zk:skills:yuanli-os-starter/yuanli-health-care-operator",
+      "projection_id": null,
+      "source": {
+        "kind": "private_repo",
+        "locator": "metadata-only"
+      },
+      "version": "1.0.0",
+      "aliases": [
+        "yuanli-health-care-operator",
+        "yuanli-health-care-operator@skills:yuanli-os-starter",
+        "yuanli-os-starter/yuanli-health-care-operator"
+      ],
+      "related_canonical_ids": [],
+      "source_commit": null,
+      "distribution_class": null,
+      "source_access": null,
+      "source_integrity": null,
+      "projection_class": null,
+      "install_availability": null,
+      "install_policy": null,
+      "tombstone": false,
+      "category": "yuanli-os-starter",
+      "private": true,
+      "human_summary": "Use when a user wants to review their own authorized health materials, prepare clinician questions, coordinate a medical visit, capture clinician-directed follow-up, or reuse a verified health-care workflow. Not for diagnosis, prescribing, emergency triage, third-party records, or automatic submission and payment.",
+      "when_to_use": [
+        "Use when a user wants to review their own authorized health materials, prepare clinician questions, coordinate a medical visit, capture clinician-directed follow-up, or reuse a verified health-care workflow. Not for diagnosis, prescribing, emergency triage, third-party records, or automatic submission and payment."
+      ],
+      "inputs": [],
+      "outputs": [
+        "Capability result depends on the installed component workflow."
+      ],
+      "status": "private_channel",
+      "how_to_use": {
+        "status": "private_channel",
+        "local_path": null,
+        "local_path_redacted": false,
+        "install": null,
+        "private_note": "Private component metadata only; source and installation details are not published.",
+        "adapter_note": null
+      },
+      "preconditions": {},
+      "risk_signals": [],
+      "validation": {
+        "state": "unverified",
+        "functional": "unknown",
+        "security": "unknown",
+        "validated_at": null,
+        "receipt_count": 0,
+        "risk_assessment": {
+          "tier": "low",
+          "tags": [],
+          "reasons": []
+        },
+        "metadata_contract_review": {
+          "state": "automated_risk_classified",
+          "result": "not_in_priority_cohort",
+          "checks": []
+        },
+        "priority": {
+          "in_scope": false,
+          "top_100": false,
+          "high_risk": false,
+          "reasons": []
+        },
+        "catalog_signal": null,
+        "note": "Risk classification and metadata review do not constitute [private-locator-redacted] validation.",
+        "risk_tags": []
+      },
+      "usage": {
+        "downloads": 0,
+        "local_calls": null,
+        "calls": null,
+        "available": null,
+        "recommendation_exposures": null,
+        "selected": null,
+        "invocations": null,
+        "successes": null,
+        "failures": null,
+        "verified": null,
+        "corrections": null,
+        "independent_tasks": null,
+        "clients": null,
+        "aggregate_score": null,
+        "last_seen": null,
+        "age_days": null,
+        "version": null,
+        "evidence_state": "no_evidence",
+        "measurement_state": "unmeasured",
+        "funnel_type": null,
+        "funnel": {},
+        "effectiveness": {
+          "status": "unmeasured"
+        },
+        "efficiency": {
+          "status": "unmeasured",
+          "data_completeness": null,
+          "comparison_allowed": false,
+          "metrics": {}
+        },
+        "uncalled_reasons": {},
+        "uncalled_reason": "unmeasured",
+        "identity_attribution": {
+          "status": "none",
+          "effective_canonical_id": "zk:skills:yuanli-os-starter/yuanli-health-care-operator",
+          "original_canonical_ids": [],
+          "redirected_original_canonical_ids": [],
+          "source_record_count": 0,
+          "double_counted": false
+        },
+        "lifecycle": null,
+        "retire_candidate": null
+      },
+      "maturity_stage": "seed",
+      "atomicity_score": 6,
+      "maturity": {
+        "stage": "seed",
+        "human_gate": false,
+        "human_gate_required_for": [
+          "active",
+          "canonical",
+          "reviewed"
+        ],
+        "heuristic": true,
+        "heuristic_cap": "repeatability-pilot-passed",
+        "basis": [
+          "default_seed_no_evidence"
+        ],
+        "standard": "soul:docs/YUANLI-SKILL-ATOMICITY-STANDARD-v1.md"
+      },
+      "atomicity": {
+        "total": 6,
+        "max": 24,
+        "band": "draft_candidate",
+        "dimensions": {
+          "trigger": 1,
+          "boundary": 0,
+          "input": 0,
+          "steps": 0,
+          "output": 0,
+          "rubric": 1,
+          "evidence": 1,
+          "gap": 0,
+          "writeback": 0,
+          "human_gate": 1,
+          "next_c4": 1,
+          "privacy": 1
+        },
+        "heuristic": true,
+        "standard": "soul:docs/YUANLI-SKILL-ATOMICITY-STANDARD-v1.md",
+        "note": "Heuristic initial score from catalog metadata; not an audit verdict."
+      },
+      "trust_dimensions": {
+        "provenance": {
+          "state": "official",
+          "source": {
+            "kind": "private_repo",
+            "locator": "metadata-only"
+          }
+        },
+        "usage": {
+          "state": "no_evidence",
+          "mcp_usage_score": null,
+          "downloads": 0,
+          "local_calls": null,
+          "calls": null,
+          "available": null,
+          "recommendation_exposures": null,
+          "selected": null,
+          "invocations": null,
+          "successes": null,
+          "failures": null,
+          "verified": null,
+          "corrections": null,
+          "independent_tasks": null,
+          "clients": null,
+          "aggregate_score": null,
+          "last_seen": null,
+          "age_days": null,
+          "version": null,
+          "evidence_state": "no_evidence",
+          "measurement_state": "unmeasured",
+          "funnel_type": null,
+          "funnel": {},
+          "effectiveness": {
+            "status": "unmeasured"
+          },
+          "efficiency": {
+            "status": "unmeasured",
+            "data_completeness": null,
+            "comparison_allowed": false,
+            "metrics": {}
+          },
+          "uncalled_reasons": {},
+          "uncalled_reason": "unmeasured",
+          "identity_attribution": {
+            "status": "none",
+            "effective_canonical_id": "zk:skills:yuanli-os-starter/yuanli-health-care-operator",
+            "original_canonical_ids": [],
+            "redirected_original_canonical_ids": [],
+            "source_record_count": 0,
+            "double_counted": false
+          },
+          "lifecycle": null,
+          "retire_candidate": null
+        },
+        "functional_security_validation": {
+          "state": "unverified",
+          "functional": "unknown",
+          "security": "unknown",
+          "validated_at": null,
+          "receipt_count": 0,
+          "risk_assessment": {
+            "tier": "low",
+            "tags": [],
+            "reasons": []
+          },
+          "metadata_contract_review": {
+            "state": "automated_risk_classified",
+            "result": "not_in_priority_cohort",
+            "checks": []
+          },
+          "priority": {
+            "in_scope": false,
+            "top_100": false,
+            "high_risk": false,
+            "reasons": []
+          },
+          "catalog_signal": null,
+          "note": "Risk classification and metadata review do not constitute [private-locator-redacted] validation.",
+          "risk_tags": []
+        }
+      },
+      "alternatives": [],
+      "source_bounds": {
+        "used_catalog_fields": [
+          "name",
+          "path",
+          "category",
+          "description",
+          "downloads",
+          "mine",
+          "canonical_id",
+          "projection_id",
+          "source",
+          "version",
+          "aliases",
+          "related_canonical_ids",
+          "source_commit",
+          "distribution_class",
+          "source_access",
+          "source_integrity",
+          "projection_class",
+          "install_availability",
+          "install_policy",
+          "trust"
+        ],
+        "used_deep_fields": [],
+        "excluded": [
+          "source content",
+          "private component bodies",
+          "customer-specific private text",
+          "repository_ref",
+          "package_path",
+          "clone/install commands",
+          "credentials and secret values"
+        ]
+      },
+      "automation": {
+        "executor_preference": null,
+        "permission_floor": "publish_or_pay",
+        "risk_tags": [],
+        "ego_supported": false,
+        "last_receipt": null
+      },
+      "skill_shape": {
+        "headings": null,
+        "words": null,
+        "has_refs": null,
+        "has_scripts": null
+      },
+      "tools": null,
+      "dependencies": [],
+      "routing_confidence": 0.39,
+      "max_recommendation_tier": "C",
+      "governance_flags": [
+        "private_metadata_only",
+        "validation_unverified",
+        "deep_metadata_missing"
+      ],
+      "cockpit_metrics": {
+        "status": "private_channel",
+        "private": true,
+        "downloads": 0,
+        "local_calls": null,
+        "selected": null,
+        "invocations": null,
+        "successes": null,
+        "failures": null,
+        "verified": null,
+        "corrections": null,
+        "independent_tasks": null,
+        "last_seen": null,
+        "measurement_state": "unmeasured",
+        "uncalled_reason": "unmeasured",
+        "efficiency_status": "unmeasured",
+        "risk_count": 0,
+        "validation_state": "unverified"
+      }
+    },
+    {
+      "schema": "capability_profile_v1",
       "name": "yuanli-high-value-conversion-coach",
       "type": "skills",
       "path": "yuanli-os-starter/yuanli-high-value-conversion-coach",
@@ -388295,6 +388609,320 @@
           "browser_auto"
         ],
         "ego_supported": true,
+        "last_receipt": null
+      },
+      "skill_shape": {
+        "headings": null,
+        "words": null,
+        "has_refs": null,
+        "has_scripts": null
+      },
+      "tools": null,
+      "dependencies": [],
+      "routing_confidence": 0.39,
+      "max_recommendation_tier": "C",
+      "governance_flags": [
+        "private_metadata_only",
+        "validation_unverified",
+        "deep_metadata_missing"
+      ],
+      "cockpit_metrics": {
+        "status": "private_channel",
+        "private": true,
+        "downloads": 0,
+        "local_calls": null,
+        "selected": null,
+        "invocations": null,
+        "successes": null,
+        "failures": null,
+        "verified": null,
+        "corrections": null,
+        "independent_tasks": null,
+        "last_seen": null,
+        "measurement_state": "unmeasured",
+        "uncalled_reason": "unmeasured",
+        "efficiency_status": "unmeasured",
+        "risk_count": 0,
+        "validation_state": "unverified"
+      }
+    },
+    {
+      "schema": "capability_profile_v1",
+      "name": "yuanli-medical-appointment-operator",
+      "type": "skills",
+      "path": "yuanli-os-starter/yuanli-medical-appointment-operator",
+      "canonical_id": "zk:skills:yuanli-os-starter/yuanli-medical-appointment-operator",
+      "projection_id": null,
+      "source": {
+        "kind": "private_repo",
+        "locator": "metadata-only"
+      },
+      "version": "1.1.0",
+      "aliases": [
+        "yuanli-medical-appointment-operator",
+        "yuanli-medical-appointment-operator@skills:yuanli-os-starter",
+        "yuanli-os-starter/yuanli-medical-appointment-operator"
+      ],
+      "related_canonical_ids": [],
+      "source_commit": null,
+      "distribution_class": null,
+      "source_access": null,
+      "source_integrity": null,
+      "projection_class": null,
+      "install_availability": null,
+      "install_policy": null,
+      "tombstone": false,
+      "category": "yuanli-os-starter",
+      "private": true,
+      "human_summary": "Use when coordinating non-emergency medical appointment logistics such as physical-exam booking, hospital registration, live mobile availability, package comparison, half-day scheduling, sensitive handoff, verification, and safe receipt writeback. Not for diagnosis, prescribing, deciding tests, emergency triage, or bypassing user authentication.",
+      "when_to_use": [
+        "Use when coordinating non-emergency medical appointment logistics such as physical-exam booking, hospital registration, live mobile availability, package comparison, half-day scheduling, sensitive handoff, verification, and safe receipt writeback. Not for diagnosis, prescribing, deciding tests, emergency triage, or bypassing user authentication."
+      ],
+      "inputs": [],
+      "outputs": [
+        "Capability result depends on the installed component workflow."
+      ],
+      "status": "private_channel",
+      "how_to_use": {
+        "status": "private_channel",
+        "local_path": null,
+        "local_path_redacted": false,
+        "install": null,
+        "private_note": "Private component metadata only; source and installation details are not published.",
+        "adapter_note": null
+      },
+      "preconditions": {},
+      "risk_signals": [],
+      "validation": {
+        "state": "unverified",
+        "functional": "unknown",
+        "security": "unknown",
+        "validated_at": null,
+        "receipt_count": 0,
+        "risk_assessment": {
+          "tier": "low",
+          "tags": [],
+          "reasons": []
+        },
+        "metadata_contract_review": {
+          "state": "automated_risk_classified",
+          "result": "not_in_priority_cohort",
+          "checks": []
+        },
+        "priority": {
+          "in_scope": false,
+          "top_100": false,
+          "high_risk": false,
+          "reasons": []
+        },
+        "catalog_signal": null,
+        "note": "Risk classification and metadata review do not constitute [private-locator-redacted] validation.",
+        "risk_tags": []
+      },
+      "usage": {
+        "downloads": 0,
+        "local_calls": null,
+        "calls": null,
+        "available": null,
+        "recommendation_exposures": null,
+        "selected": null,
+        "invocations": null,
+        "successes": null,
+        "failures": null,
+        "verified": null,
+        "corrections": null,
+        "independent_tasks": null,
+        "clients": null,
+        "aggregate_score": null,
+        "last_seen": null,
+        "age_days": null,
+        "version": null,
+        "evidence_state": "no_evidence",
+        "measurement_state": "unmeasured",
+        "funnel_type": null,
+        "funnel": {},
+        "effectiveness": {
+          "status": "unmeasured"
+        },
+        "efficiency": {
+          "status": "unmeasured",
+          "data_completeness": null,
+          "comparison_allowed": false,
+          "metrics": {}
+        },
+        "uncalled_reasons": {},
+        "uncalled_reason": "unmeasured",
+        "identity_attribution": {
+          "status": "none",
+          "effective_canonical_id": "zk:skills:yuanli-os-starter/yuanli-medical-appointment-operator",
+          "original_canonical_ids": [],
+          "redirected_original_canonical_ids": [],
+          "source_record_count": 0,
+          "double_counted": false
+        },
+        "lifecycle": null,
+        "retire_candidate": null
+      },
+      "maturity_stage": "seed",
+      "atomicity_score": 6,
+      "maturity": {
+        "stage": "seed",
+        "human_gate": false,
+        "human_gate_required_for": [
+          "active",
+          "canonical",
+          "reviewed"
+        ],
+        "heuristic": true,
+        "heuristic_cap": "repeatability-pilot-passed",
+        "basis": [
+          "default_seed_no_evidence"
+        ],
+        "standard": "soul:docs/YUANLI-SKILL-ATOMICITY-STANDARD-v1.md"
+      },
+      "atomicity": {
+        "total": 6,
+        "max": 24,
+        "band": "draft_candidate",
+        "dimensions": {
+          "trigger": 1,
+          "boundary": 0,
+          "input": 0,
+          "steps": 0,
+          "output": 0,
+          "rubric": 1,
+          "evidence": 1,
+          "gap": 0,
+          "writeback": 0,
+          "human_gate": 1,
+          "next_c4": 1,
+          "privacy": 1
+        },
+        "heuristic": true,
+        "standard": "soul:docs/YUANLI-SKILL-ATOMICITY-STANDARD-v1.md",
+        "note": "Heuristic initial score from catalog metadata; not an audit verdict."
+      },
+      "trust_dimensions": {
+        "provenance": {
+          "state": "official",
+          "source": {
+            "kind": "private_repo",
+            "locator": "metadata-only"
+          }
+        },
+        "usage": {
+          "state": "no_evidence",
+          "mcp_usage_score": null,
+          "downloads": 0,
+          "local_calls": null,
+          "calls": null,
+          "available": null,
+          "recommendation_exposures": null,
+          "selected": null,
+          "invocations": null,
+          "successes": null,
+          "failures": null,
+          "verified": null,
+          "corrections": null,
+          "independent_tasks": null,
+          "clients": null,
+          "aggregate_score": null,
+          "last_seen": null,
+          "age_days": null,
+          "version": null,
+          "evidence_state": "no_evidence",
+          "measurement_state": "unmeasured",
+          "funnel_type": null,
+          "funnel": {},
+          "effectiveness": {
+            "status": "unmeasured"
+          },
+          "efficiency": {
+            "status": "unmeasured",
+            "data_completeness": null,
+            "comparison_allowed": false,
+            "metrics": {}
+          },
+          "uncalled_reasons": {},
+          "uncalled_reason": "unmeasured",
+          "identity_attribution": {
+            "status": "none",
+            "effective_canonical_id": "zk:skills:yuanli-os-starter/yuanli-medical-appointment-operator",
+            "original_canonical_ids": [],
+            "redirected_original_canonical_ids": [],
+            "source_record_count": 0,
+            "double_counted": false
+          },
+          "lifecycle": null,
+          "retire_candidate": null
+        },
+        "functional_security_validation": {
+          "state": "unverified",
+          "functional": "unknown",
+          "security": "unknown",
+          "validated_at": null,
+          "receipt_count": 0,
+          "risk_assessment": {
+            "tier": "low",
+            "tags": [],
+            "reasons": []
+          },
+          "metadata_contract_review": {
+            "state": "automated_risk_classified",
+            "result": "not_in_priority_cohort",
+            "checks": []
+          },
+          "priority": {
+            "in_scope": false,
+            "top_100": false,
+            "high_risk": false,
+            "reasons": []
+          },
+          "catalog_signal": null,
+          "note": "Risk classification and metadata review do not constitute [private-locator-redacted] validation.",
+          "risk_tags": []
+        }
+      },
+      "alternatives": [],
+      "source_bounds": {
+        "used_catalog_fields": [
+          "name",
+          "path",
+          "category",
+          "description",
+          "downloads",
+          "mine",
+          "canonical_id",
+          "projection_id",
+          "source",
+          "version",
+          "aliases",
+          "related_canonical_ids",
+          "source_commit",
+          "distribution_class",
+          "source_access",
+          "source_integrity",
+          "projection_class",
+          "install_availability",
+          "install_policy",
+          "trust"
+        ],
+        "used_deep_fields": [],
+        "excluded": [
+          "source content",
+          "private component bodies",
+          "customer-specific private text",
+          "repository_ref",
+          "package_path",
+          "clone/install commands",
+          "credentials and secret values"
+        ]
+      },
+      "automation": {
+        "executor_preference": null,
+        "permission_floor": "inspect",
+        "risk_tags": [],
+        "ego_supported": false,
         "last_receipt": null
       },
       "skill_shape": {
