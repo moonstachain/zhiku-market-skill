@@ -8,23 +8,23 @@
     "source_dir_redacted": true,
     "catalog_built": "2026-07-11T14:39:20+08:00",
     "build_id": null,
-    "catalog_hash": "48b9fde5e681035fe1d6b421a7d36a8cc21711ce860a33a6f1c136f76508e6c6",
-    "identity_registry_hash": "90b31315155802f1f8e6816632c6df4014db31ad0957dad8979eb05031797e63",
-    "validation_registry_hash": "b8afe5c84c46c66fc2bad4e42ad060a43460c14e47d44f4792ec1b1a22319eba",
-    "total": 2100,
+    "catalog_hash": "908c7b965f6db9f7a6846af4f88a4b70ef042d424740fa817ce68d6faee6dce7",
+    "identity_registry_hash": "ed7a61b0e50ac6daca6faf1ad16def1d24e892f98169911a452c153c8e8d8d33",
+    "validation_registry_hash": "b439315c5b86cf4440131e5ef61e1eee70c98098df20e96200bf0dc454f17e3e",
+    "total": 2102,
     "counts": {
       "agents": 421,
       "commands": 281,
       "hooks": 57,
       "mcps": 86,
       "settings": 68,
-      "skills": 1187
+      "skills": 1189
     },
     "validation_registry": {
       "schema": "zhiku_validation_registry_v1",
       "built": "2026-07-11T14:39:20+08:00",
       "summary": {
-        "total": 2100,
+        "total": 2102,
         "priority": 478,
         "top_100": 100,
         "high_risk": 379,
@@ -35,13 +35,13 @@
           "critical": 172,
           "high": 207,
           "medium": 84,
-          "low": 1637
+          "low": 1639
         },
         "by_review_result": {
           "pass": 304,
           "warn": 174,
           "fail": 0,
-          "not_in_priority_cohort": 1622
+          "not_in_priority_cohort": 1624
         }
       }
     }
@@ -54,15 +54,15 @@
     "settings": "settings.json",
     "hooks": "hooks.json"
   },
-  "catalog_count": 2100,
-  "profiled_count": 2100,
+  "catalog_count": 2102,
+  "profiled_count": 2102,
   "excluded_count": 0,
   "exclusions": [],
   "input_hashes": {
-    "catalog": "48b9fde5e681035fe1d6b421a7d36a8cc21711ce860a33a6f1c136f76508e6c6",
-    "identity_registry": "90b31315155802f1f8e6816632c6df4014db31ad0957dad8979eb05031797e63",
-    "validation_registry": "b8afe5c84c46c66fc2bad4e42ad060a43460c14e47d44f4792ec1b1a22319eba",
-    "usage": "c79a7ba92d59d498c020aaaf026b8c8c66e0bc0660f3f703bb66549ee0c2316c",
+    "catalog": "908c7b965f6db9f7a6846af4f88a4b70ef042d424740fa817ce68d6faee6dce7",
+    "identity_registry": "ed7a61b0e50ac6daca6faf1ad16def1d24e892f98169911a452c153c8e8d8d33",
+    "validation_registry": "b439315c5b86cf4440131e5ef61e1eee70c98098df20e96200bf0dc454f17e3e",
+    "usage": "4e78af53c3ed2788705a004f99b42f2e37c24b31158c3587cf395179d41e71fc",
     "local_telemetry_analysis": null,
     "metabolism": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
     "self_assess_audit": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
@@ -101,7 +101,7 @@
     "secret_values_included": false,
     "private_component_bodies_included": false
   },
-  "profile_shards_hash": "47e325b5bb19660cd288022e6b86861bb54aeb6ba6edef4103ac78ed3db753bb",
-  "profile_index_hash": "376d22a9becdf8cb27d40f3301783dbbfd7d2055ae49ee09639201cc940fe88d",
-  "profile_bundle_hash": "5cc8071ad38b2374ed83cb292b91c617a8b888dc53c016564b3ef4ad0c53543e"
+  "profile_shards_hash": "a3e65258f8cd9a4207815a375367d558d71b177581aafbf67008ba4d79461926",
+  "profile_index_hash": "14a260bd92684042964c77fe6871cc8e9fed877844f5107eff83b5b1e8b4e05f",
+  "profile_bundle_hash": "9d8fcdbd6e980ee92c5261f9fb012014efc2a075cd51df76f9ec8b2568788f64"
 }
