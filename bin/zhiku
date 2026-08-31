@@ -1,0 +1,1686 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+zhiku — 随身智库 · AI 组件市场 CLI（零依赖，python3 stdlib）
+
+    zhiku "我要写一篇公众号长文"      # 中文任务匹配（内置中→英领域词映射）
+    zhiku -t mcps "database"          # 限定类型 (skills/agents/commands/mcps/settings/hooks)
+    zhiku -n 20 "video"               # 取 top 20
+    zhiku --deep "elevenlabs"         # 附深度索引（触发场景/依赖/需配置 env/风险信号）
+    zhiku --json "feishu"             # JSON 输出（给脚本/Agent 消费; 配合 --deep 含 deep 子对象）
+    zhiku --refresh "..."             # 强制刷新本地缓存
+    zhiku --max "desktop build"       # MAX 模式: 置信度/三法印/下一步
+    zhiku operate --recipe task.json --dry-run
+    zhiku operate --executor ego-browser --recipe task.json --apply
+    zhiku skill discover             # 发现本地/任务/GitHub Skill 变化
+    zhiku skill inbox                # 最多显示 5 个治理决策
+    zhiku skill capture ...          # 显式沉淀当前成功工作
+    zhiku route human-review         # 生成30个真实历史任务的脱敏人工评审板
+    zhiku route human-review-record  # 记录一项脱敏人工路由决策
+    zhiku route human-review-import  # 严格导入驾驶舱导出的最多10项决策
+    zhiku route shadow-readiness     # 只读检查14日影子计时前置条件
+    zhiku instrumentation audit      # 只读核验四客户端本地回执链
+    zhiku instrumentation plan       # 生成需授权、可回滚的启用计划
+    zhiku install-suite yuanli-health --host codex --version 0.1.0
+    zhiku install-suite yuanli-health --host codex --version 0.1.0 --dry-run
+    zhiku install-suite yuanli-health --host codex --version 0.1.0 --verify-only
+    zhiku install-suite yuanli-health --host codex --rollback-version <version>
+    zhiku release-suite yuanli.health@0.1.0 --resume --source-attestation source.json
+    zhiku wechat preflight           # 私有本机微信 Agent 通道预检
+    zhiku wechat status              # 私有控制面状态（公开包仅安全委派）
+    zhiku use <skill>                # 安装到 Codex + Claude
+    zhiku forge status               # 兼容别名（已弃用）
+    zhiku --base http://127.0.0.1:8902/zhiku-api "..."   # 自定义 API base（调试）
+
+数据源: https://os-zk.84000.art/zhiku-api/catalog.json + deep/*.json (匿名静态 JSON·canonical)
+缓存:   ~/.cache/zhiku/ (TTL 24h)
+安装:   curl -fsSL https://os-zk.84000.art/zhiku-skill/zhiku -o /usr/local/bin/zhiku && chmod +x /usr/local/bin/zhiku
+
+深度索引(deep-v1)是从组件正文启发式蒸馏的结构化摘要(无原文): MCP 命中即使不带 --deep
+也会自动附「需 env:」行——装前就知道要不要 API key。私有组件(★)无公开深度数据。
+"""
+import datetime as dt
+import base64, hashlib, json, math, os, re, subprocess, sys, time, urllib.error, urllib.parse, urllib.request, uuid, zlib
+from pathlib import Path
+
+
+# Governed, hash-bound copy of systems/zhiku/release/install_public_suite.py.
+# Public distributions contain this CLI, so install-suite remains available
+# without a private repository checkout. The payload is static release code;
+# no manifest or downloaded archive content is ever compiled or executed.
+_EMBEDDED_INSTALLER_SHA256 = "8309f6bb8e09e7213ac855780a1dbcd02555f5e348f3ce6f9a328cfa27c3974a"
+_EMBEDDED_INSTALLER_B85 = (
+    'c-qZ9e|OtBj{oOVXm$H;?5XV}olbYoZ$0-iZ92_u+w>*r?#`w@J;jz|O%=;4$!*hYzWV{-FOZ^SIqluMd2bp^BtZ}aK>!4yfBVD!rY!ca($#*l`WUQlt7X3W'
+    'VJ{5B7jc>mXIWk*^PsHeS$Y+utFnr-EGdFTUIgpSRhE`ZDE`MX{jd?wv!MKtW?4{f(kdxO0B3J+QRFv46fHK@rbwbFNN?78Q3dg8l~-|<=BsjVPrWOy*KtuM'
+    '>iPOhx>moJak&I6)MJ{fU%!|6O8w4D^{dc8%H^g?GyMd8s^3*yEYeI@tdg5Gf8G=sbT~?iA}^eGMe@&0QdVMY>$qAHeMFVF@HhzG!eHO#W%?N(MZM~FovyA`'
+    'wWHPTAb1A!jIW@}y}i>HFHWAF9KDK;-kwBfr>7UeBnX#PwJyi|`*}J1@?rGTlY@hUQCw8}Uy$U(c%6o(9kz*1-aJ44d-U$?6|}BHd=!NH>1v*Q9wE_K+w*rP'
+    '7snkMi+T0KI6HoId~^;_o*%!tIJx+(6;P36Nn9qwbe^oLw7PYHJv)7QdUnwX#4KL|J%=BEkT6~!{XP1x^V2ucFTY(JpF{J<!S})8!Q&_L4^=oid-n3=ugAL1'
+    '557t-PF|TBKY1!#oL&G{s>b0{PnGA#&rV;zJv%->KYng7deVZ@>*LqI9G?-ug9s*k@BHY+arEZs^)Zkb-WJJdmfx&_QF}%B-<R?5%fawJrt<G_dUr5*`osMn'
+    '!~Wi10m=!`!Pg3#JbFK}|MvcKd^vnH#fPKeKLFrpIDORrPlN@7cztrw1S%dbrgu*csMqtCM~{De+FJAJ6RP>_=<U%jC$ErIS_Vc~0V4Xj|2;N7JO1_L{Nk+M'
+    'bT5GapglDE@?kuS*YQ=F0f&uS0EV*BzkYi)1gwUq=R=~%-B0)O$CLa1AHzKu-RZltXUB5Ac(4WlR5rW>3X1tS9Q-6GV-|?7<(Ch|P*do!Xz~2y*W+_9)yriJ'
+    'R35t|{q^MH<-1=RX`;l*by_VqSMRZWzjrC-8X!e9-}N^%^1Z!T7MEpkB6fjulmy2p8hd9OSi(2rp+Ba+)=(2#%#%eB70K_(tcvEFHS7;@l|&zs+p@Qg)1n*)'
+    'u!U5Y6%-|xWmODNDo&^UVEA(|PiK{RC%_g-xyh=rQwC$byQgy8mjL=8_!wuK1U9TdbVG&sU%J3@ERdjd34xE(G70{QZN<nIp}`u33!*;0gMaRU*18ozx`elg'
+    '3H2<Ig$+-2<Pc+(uNLVFDA=R=W7w7o8ugoemB_Kyk<qOLGONwaRZ@)a2n1pz`pEKlE-GBzg0NOS(8C~r?Iy`ge?BS$k+NhZ+Vz8<16!aPk_im!{ICeA_bSh$'
+    '40iNnd`F!snpMTEfkE5-9O#BkMu>XZv*v`b7|oMeK2Lh#rdkYt3I{<5C<EqUe_&P4uZX%d>CrOJKTQ1GXSX68qFIguSyhwT9GTi;0LkZBvaW*OyH$!<(Vz!n'
+    '07$0i343eiuOGxEHtkHmbOmEi=Z1O#X%PTI%@Qb3L0Xbpwwfh9LCXQnX}@zfl4hvUq(w4!CQCB00IitVa2TpfJ=A~3Qtj!$Ue^4Jg*qV}3bZPKE11@z^yxWa'
+    'yaNHVd=_UgrdeLhqs=P*2-+;_Sxv;0!}Km4IViQfqB342QC!TH>Bl5OynCzohAm+x%|@e<SyMP$STlf;;NKCTT~y^Kkj1@lA25RV;rsU?N+(q>eE<32K)=~O'
+    '@{r>N14mrtOyV0Lw5694=6!`A%|Tj5@l}~;8<0(eQoOoF&Z-cJUWjXNME{JChG+-KGHQ(vW&f-2)EuY4S#$@b4{QcScq2S(oadbdSM*dRP{cE#LiBMKtPP<v'
+    'GYaPMu3f^QD+FgbYPyh+K*5$F`Zw_^U4UgGgs6IQcg%q>&?MzPCPfKm7(MN^?Fxu9S4KyRO_trn)oj@#c*HMQ$!MOeitMHfcS!RpQr3Zzg`t|0HHa+QHtsaA'
+    'u$(QEn>ZW?p|FmGK{_PNz&Z$x7zggF(nX9?FV7Neu`crYW`@RSRN<CY@!GI$#94kF5hTC~8Z1K4Ed>ql=+8ZGfU62BQ2~1`2>>PX7b`=vRA53_M^GbOq{*Cv'
+    'mG*Zer5S0pTbgJi9qL^a8;(tpT!Zda+(z;ICao%8m1SO5*a7ZmpE+3QE?Jd?@6kF2x(^?Z4nhk!*=EsIT&5*fD{oiTGN}N~e{NtV7q}NAwewYWD;pXW4n~o|'
+    'KK2QAW0+)+Eo#C?K+qf594v)SG5H9ltw&A!!5=2FwNJtGZ5Rp&tfECSyPai;*?$S9+7R6i!!q9#v&1k5bslOv;N|hrtBaSz#|Mv}9{lw9hanhrhhc{$pb>K5'
+    'J4*qS6j0048x&+VUTQ;+bQLoKM{&?Kr0#&r*l1z8RKQ(spr5D^IzMO+Wm0@haM)={a9_k(ndrtO5bX9zoPo^GHx*bPNf}X@A3%Q>IuV@cD&MT;ap6h~%~iCE'
+    ')%g@E4v^2$lMv0*YXC@Erl5Tc%cB&&DqYyHkjk=Fsn53@fCTb;64<sNOo_m5GO=(95+FsOtw7H8V*em;Tntx5&$k{>l?eO&omYe8eMU{OuOw)B)Ok+6Z(1s%'
+    '7&L8Q9<fdipQ<f`v7>}CAmfm5M{`8JmCbhH4BoB77jlBrxiUq8fM~^CPUUthr?#mA@>P+4LavhdjonFN1B04ug_S@OctZoavnEFIopD}B2G#gDC3b6&$RFZs'
+    'p~?uh21y7*7d``4`@S1L)F^4w(4r&y9r90>WVCVRcC#ifZ`ClyehXc7?*pO!NtUwwOMH>2>iu2E?;DYa8lIUqW3_Q)ZY+i&tG+Xie)@T^^eNORKlDske57Ou'
+    '@RQ39q{BB-LHh$8F{Qh4*mFl=Rl^3)3EDWc9L4K(vYInC@Uf(>#^-{&M+`t(!So7-!(MCA#lc#Yt%CjoWSUlxwSPm2Xn{vfLW|dpnt&+o>_Vum44dvnvIa}D'
+    '%8OgTL)1`fTop88Vyc)0QzVRs4054xXO11W<-YR_qR;>pJ2R>r#^cs?eJL2uXyq8Rr`+LpK7P=AK<D<cdUqK_ARH8$mNf5s>#F7z9zH|`r7Du-VFTq5{CG5p'
+    '79SqlrA&8>JR$}#s&3bbw`+8gDWykix#_A>d%$7vXSF;oeT}AA?l~cP2<irGZLJDX<gp_}ff*<_4ZORYlpnSc(9AZfnSX7#P_#DO3Z-1d>vEZEW!?tY-)+Gw'
+    'A?*;1TrsMe@>0!Wuy<1QK8l`u^L)0s0nT%MFyv@~Cv{+Qi_S-&zM(F8l;@k9b*X_20<gRB7(Fg$X*wZO3FISME$G*tkO2>x<vK265K-l%7Y<Mb9ODv)0p_2g'
+    'RlE}I3}qh$;ro?11M82H6?e5;V-4l0QwS~Oar{WU>Ph_jqh<104%|AAP|k@+I4j7O5+iN$L=A#P0&^=ov15Hwekmvj%V#<eXByLHpH-0q!%S*!T?V+<aC|;+'
+    'PCZaUBD9E(zLoVLY;t_lwHN20-Pa9+s@9y`<vpF~IrNXob0qH_nKn5^N0JxlUttt?9iKV3Z|g_ERLqrsLQ9ejTP|UWHE>*hk#u7(LLCC3f)b=7ZvRel(Y=fZ'
+    '5ROp5HNkE!&B_P6joEL621qxry`~$*tGO{%$j{eDqn*083zfHz%H;!rnbv#Jwl3NG(zcX(rbJ!Xy(q=xi_3$l+Gc1YhhmFJ9YmZUxx_63;Tjo#Vc&8fN1GyR'
+    '48%ZjV0AqzlAHWvvM!QE`nktu%7MCtsd(qj3q{qEup8Xr>WB1vYf;nYP-c#pvBvq5zn*e0vE@AC4eS!$rrE#5+c(#mc5*}6$T!uRx?Whd=a9<`W#53W(Sepq'
+    '11Tcdrn;jOS8}^{(CMCWL8*rh?%h^qXB&?(n}7zioQ!f)-@xVQ_yViVX@|we`?p$qkYL6Q&|T?an(Z81I74!6$+WexZ66AUprf-Mh=JYyp;***hTRdVfp{n`'
+    'qR6(Tv2lx)?P+Or>Uvv8-|p|oT1~9opsrqJ`Bjvsb1O=O^eLft@wQCmJM3MB*fc=dkJ`5h7%>_o>8LQoN5NJ2{s3!=8Y4$R6c!#LVIm1!6kt$An%DtDGNQ%#'
+    'ljqr#d1$R8-`O(F=0$=Ic!bjvC*D<3%+sRR|Eib+%ixVRD~x48ebtRLK+#BOprBLu81NRlBn?)J9MGkjqYUML&#=`NT)zdrWaeQsg2I797i=Se#p7`A-xaC`'
+    'ESN!X0ec|;re###-el?OL$ALh?#LClcKCqo8woW!k50~?pPcoOh9eZTfV0zu<SXUuqksrv*nJq)Rfqw%2k^_VDB%p+2U=RpI88F%>DlqGZJpL8S?Jm1pwM)#'
+    '1;gwx>79s2u7LK5CuI%r2c)jT!-IoA{rF=@+AAAd@bAGvet38&bXThO^vRQOE0qTXdB8-FqyP|C*r%MjW%3}_K%YzmOYSP2gIts>a+S|-X+)u3kz_%0ta5bJ'
+    '180I@fK35Cn83GKE1CD?Xa*QcILYFht9guS{}}%Pt(;BvJT2E*d>hFHq<gs>4-cgoz<MA8>N*+-q5EheCIVTLgsuhJNLawTMPwrvTOu1_w@PfPP!rgkg-X&5'
+    'nbbChIKFC(+@wMix(UP}eT7Q{<?>MlB&Bx{#nNDR4}vwt2l^*XCyoZmS>jyh<>*tKeUOUpB1hi|VpU4#3ENaQMIjb0g;Z(ieM=ptc|zUR^f-2+5XrDr(Dnn1'
+    '37inE27%d$D%h~LCR{W%ExrYkY93VqMGZa#^_E3#j&OwY+r$(~XLyy<T=qwC8KDRNvm;i0zH{|7un$%1JC5RD)p<jJai>925BxmG9v%f7tB$5}n9Tvl+8(Bh'
+    'IaaKu@w_>q$JYK-C7&xRKoei|NMfX`>xtzjRFScAZyE$VM7DbXtnjoE!e;q;Bj^wpD~@tF9KHvZcwiq=)kHr4L0*8x&<o$M1k^$BL|bTB>CeHz*YqPq4fjaF'
+    'YDq>Q)>AM8#?aki|MGA;Le*;BvzIB>L?%NlFQ1G7o2h7s1zcf3ClWzrG@?*aiG+4F32eX`xg@rj?l>}!)uHzajIJ&>H)Y+%FuMVURWvi-mLPD>dz|CCGo0{Z'
+    'Ba&Sh4#+J@*^$?L;2X9@8DGLKH1N5$CfRgMBo|jcSP((j<JUv_LC_mL>W2dYSUaYtHXU`W#^E>um|%{si+r>0J#G&?V3L+W_X}GtXfa?)90Q)edwm{?Q{r|Z'
+    '++|qix<FoF82P3s0b>2q2baTqw1@phiL3>(lJ{C+V2aeBF?6@_tb=qh3}>z@XMKM}fbuMcmcN;rkzb<iNOA`)j2$^TJ_+)^%P>U|UVi?UlUJ`sHx%r|rd0+p'
+    '74fVpg}Z+!kQ-{>3Hkc%z)%fZoVN-Jbq#^jI;0Atq+yWHbag$xQ?FH6sJqWnUzcV)(*Ywpof}M5pa$|Ai9|fskj>1{r*%URhUT2U85q_9oNp4HbMRdz(r)Tb'
+    'CgLF2Ps@9TmVJl=1+=#5+=tw{#B;;ojt^ZM1{7BVu<Sz)4P-X~O!Ej3{miJOknRO3O|~Dj^@bliQz2$h%LQxpYLjF2(v>sWSSS!djRTod^m=ax0Yxq6Ek>&l'
+    'oY!fY*`unTXE+Bl19qCI5168Q4C$qgADvp*>xxEG>Jl$0>~VkD)Crkv2s#{-Qp^G-EhS7I9M*=!6f485wVCkVT<{Wo`0+4oBC>Nf<(5s`uQ9MQDz|W2zt7+b'
+    'Fz?j{Q%Sw!^{fcsad7z5d#S*{Q17NKcMIw#bE2f)FV?o1il2F*pmAo&5;t~P7op=@4VH$i{C>FNB5_=bxBkr{)a;lh<$h?@FD)KYOMh(4!Mac*>s@VxN|^c7'
+    'DsC<~`1Qppx2kAVVYve{f@;$FQC@_14($6oT(RHzR_u3Eew^QF1>SS5Mx(&O&T(6@-`6qj5-6m2T8^b@Z)w1F+!RFJB)WW>wvUz?oJ%=X)3Y7uaX0K>1L#TB'
+    '8M7X2?OfH6hhajxiF+~P_Q#Nvq@k*Z0<QDb1ee+b-CWjb!pXi>>|p2(R5#jFB%P|(X&wjA6tk{^{csmCmxv!a)S8j)jCN04ffg5X=)?l`F@16&ykDS!7&X$a'
+    '?9mn}dULw#>6icLk!^Su__2+~pkB?<S;rmKUk@Z^!i<@<qqYHIp@E%E^aep^)OvY8RIrh{EGlEu<k4gEZOb{lO;>b4E9|?yZI|z@9@Hg#D{09Nmu#~XLxnLJ'
+    '1X!YF!eUk#VhwKPM&PWeYFBg0a_~1F(0vcq0nDTdR7^g@vWfB!^r(@-8^;!6`ha#vv@oJ6xmj0El(|J)zSUiY?>`?d-hck-D%|A`vm$J2F75kL9bgxf(P;E5'
+    '{PO~R;K+UX)$fxuAN_*JoSZrnFOH)oVF4JSH_ObSEkw{Yrb^I1uOCQy_Zkw>JPHnNPa!ZKhotzf-n64f#b!Vbnh9rF34N|2AJZsb%a!TS#==dLW*oNP)OKdl'
+    'a#YiF{1VUAj0}R~(-+crt+2U>3;9O6wRdo2D*`k)6^+YZTt%n2hMs*zzwWKMv}5?EeR=I(7)?on@w17QRRwRrPo=Hhw|gdKferzJf6+b#)%12%f<le@kQH{p'
+    '=yI}J<OBDry%l|t14W`T{eoZ*>TAN-c9K%KpURiL8gJ?=fIqi~!|%Y8_KiiQtBJSXTYXzH2Z;J3lUKny7sF=gOGtRgM`w(sKG1YDgiuHEeBNW+z^_RQ%+eBs'
+    '^-hOxs{1A(@9QJm@oZA{v5brPwoXul_jFIRF$8+f;0-8az5YWw?{K<k#z;K<=iq>KO|JxNn#^Gjz(a5*t}&-~wwf>=!1U_k$SMkaSfa8ABSb*!^uUEFI4<}Z'
+    'Ba|P>H%zh#n^6cidU1I;_E(%zw6yiEjxQ}GF23s5xa`$x)t!iSczH0b)utdGr}`gEeLwgPDNZ=RD89K$uQ&OobV%t~bQZO|v>H$QKGIOYgz^S>F;*u&))Mkp'
+    '-D!ZHa0_3MQ@YwDwL-Pi=nx@+-9QheZ|w&D`B!lUdfVE2&^V-%pI;u80Hwcq`}S&YBm?VA%8#8BJ>c}X_uxs{x@qu!X#3C<w`C8dMS($b&HVQ~UD3ApeM2K('
+    'pqqeX1!gdq-dH!2MQitPH!IUnQi6rv80yA%u!cn;k?&~CY-N23P5{~!D)3$s-!R=t8m<&xBL-5F*0N2bz}!m4TGZg4KZsFuWXuniOVctt93LIV|4~dd+fwB%'
+    'YF+#dwpeip1i)Qig<iZ_e2pqzUXD(qznz`FdG#CU$Mp2<?D*(HJski2*(-M}%eaiIs_5nAAP7&RH>WR7U%fj0Tj*gY(apbPKdR>TH3SQ0R;23+NJDMOViL?W'
+    '5I_gPLH_jMpw5S6hC-9YoEjNOfb1t}X6Bn}y{Y_Lf+!n(DlmJYnv+^h=wP-415G1!kpJn&AK414hmHciPo8|+P*<(lNsrDVhIy}9VG9sFS;nZW))S>a?paQ('
+    'meYGC#EdUUg~7o8@g@Td*!`wWk*VBes9=rpQllI9Zq2?-iv?3|ry(AliN8I%D7Azo2PVtpE__!e#qj7lA#azwh9ypzbSmfl!|=XuyC@vk@JNgzpTXQqZxUdF'
+    '$>Rg!6)?xw`O1yYReAkXsSpG-PP6`N;bJ`F^61^!t6k0QRZ@M*iw}~@{@Hf3TMF8Da4hAYR^%?%c`ZYiGd797(Lh{J8c`3kXvuk=VM@vC4W?NnH=s1RY0}^7'
+    'J9{WXa&h`3Q*U)Z4_lDKtK6*D6sK&QUZ&f+;8zm`3pQDOObgi6$)){|mnVOD7d<=0i>fbAUmuGb)NU<a&d(QAcQPhc-up;CufY)509S&^mM&!9wD_^wXqn$&'
+    '(!u>89EoxBOS}fE1!rWk6$-~jkzWzxK`VOkX$f2)!cVbiL>p?^6E=x?ZN;l%kpP71Kb4DJnWb`){qRzqNU;X7!vso}X|l3aC=m|J&LwL%EUhRa=R!?Gi09Ur'
+    '*}ZPM*tW5?s9+|DT2CA@u6X;6Ny)QT>Vr(j)-?E-SZAza9dor}_fQP=<gT-LrlRB6lnO7Pda9i)IP)Ba;aMW?+kkx}E*@QhluVKp@W7_TyO}H`opt~a?lRyV'
+    ')749LlydnS>WPD7lP`wveKH4zXlRwmcZ^DHOf1+}&KcLo&Yq(_w&z#3o}Zi@Kf5?R`;F^cww|S{>~+`JS~N9lEy)wP#hfW-4nYW1zxm1+Kf<u!)G1j5)~GQ8'
+    '49QYGuUaQ@q&qO)3cT~?T4gaql?d>jXi7A|D=Ssg9&o+7qnf+w8rL~VW3%Bgi`>^zx6=52-95m#%5Tz{UcYrEM8`#g!QJE8FFGm;!to%#GU5Dd=e?+@Asnzg'
+    'p;Bf&HG!R%PUg!HeiCZp7yy%#vN|KLDrvWAU)bVpze7#xyYK7~0wKUeiC`1p&<;)3uWhLcBiWy>SkLN$J*hx;Ph@WW)@+ZZagq6?yX0`eyUHt2vimYSOFc1*'
+    'L{0J=;l*!vG~;M?2bE-b2j>H~7x9BBd4btB<pnqO1r-2R;_sgD&rKHL=#KirdiR(=8v2^B-X$|CcuH@yJ7_vn-D1oNPsG^cI*~@KcXs<eU(0BbZOWx{aR|FF'
+    'Z&$OPs)JXj@*dAzq>W)Uo|<*e#51d8_CG0&j_D6>_Uwv;tUlVTNC%Pb%ev1<9Di#4VwM1<dd)!#B4y7^>K1OP7FI1EYjDFpoD9v85*>3HBj?09;=A^+Lz$qM'
+    'MBDDch*l;wPZ%Yhw8}zX{Gq3vzPs;l>4d#-0=pqMU7}$8?cD(HZBa0OC_L7m$5E=7UNdStcE$wE=oI|KW|AZ5p*<V9W~}BI86Boa=|D<vFs;fDgFlE(28J;P'
+    '?%X%e?!cL~LF0V1)0rjM3!R|TS`sxPlA9=2ytShg#qc}mB-ZB;>=PPE6LQs17f$vfH(`%e%gMcCXD;Cttr)<@#cw4qv6|CNiikX|VfZT2OjAAl<))5fR8|?-'
+    'NrJicTGQ8e&uYg9V6j_cZo5vf91i_DVE#0XE~v&Fu0BvrnHD)v%9ZGC-IOe`WiCx_CzGqI|8=Xv{YJ^|DW$sHxRSmXHk(#m-)>_0O>1Ks1b<0x<*y4M@mG9='
+    'rhz&&Uutc^UpmY_<#DCfFzf|<=`uDowBLD~*&Anb6l-f^ch~H4b*dGhmA`Y#Wx8*{vHGeZ;bFAAcpgbxrs3{)H&u?HqDkrb_Rm1uVKy#Jx`5u{<hsHBwK+rT'
+    '$gQd?%{Y0Aq>yjWBO1}?Dvr2K+;oPctUx`TdWW0(J|xgtH}L8N_B}F752G&R0x&{SWIyW~K5j9Kb5qRvq=h=bU<l}M?x-}XlsfAxILLglV5vRu+yO02g_?yR'
+    'R0D-YNfv_E<M2Aq-TnO@KgMX_PYuDRsi1x(kApB3Khq#}NB4ZKi`(c;dW{F=Ha*0^(w+5p-N@`&@?<>G+K%7`<X!6c(sVlYUT(B~g`IS$o%JX`VFadb`c0M2'
+    'O=!eWK~0&YfcQuPtr#|EZ9UlOf|2&V(YzIR)Um;(sXXnILqjf8r)-Db6~=vcxLuDES{c9*;LSpr2B2`6I^wyJDYU56CN|Q8Cp@*cNry~Wc@gTIt;0J7?>jDA'
+    'znk8N-<B$#Q(N_YB^q}vIWavO7cDoQ*c;|?wLG^ns#;X~Ui|5r-<X1~YT*L{#=N-2Z}E&N?;TVW-o*Bd$W6{pm0Op)rp5FR__+KzT)hdNZN=Ei=-e$QfePRd'
+    '>1Wx8d+aZn(uYhbua(rY*arrtPBvQkv4D`Lzg~p<vZsA{rRwrKp>g89Lm2z$`U}sAY_2Tucn*f_pnhM++_{lcW;-#p>-0kT^PX$1gn3a#j^h!)7y^u;@NjAu'
+    'pc8{(t3BJVHSzysfr(@pI4)URM)qraxqZPp|4{q9nEvkBhQ1J{P?|@QK<;O4lt0k<tXi`paN9@MXeoZrsl;!3|8JdQJSgO^3m%p$9Xh;5C$M-Y?$($(ybAZV'
+    'OW*z6_1#OZlLB%m{r7esea+zV{YWIM#5{rX<RjTYRs*}7ouJb9+DF9=3jUsK0}}Cil^01wu|cKJv+dmiWRK86I;#cyp;(wlh7RV-W48Uj!#eUT8wuZFyGlMq'
+    'Y(sWE@wVsPv;WGetgF#X(dHt(p=K-Ls0mU|ZHk)};0N2W8`*6R<!ob<Bha8qh`cE+_MUTI*QkOpJhtRsw<O$ZZntuLVWMfHhkiRe*XcKD@q>8unnq!|O{jW='
+    'Yn<Wa+#08A*wmz1$Zi+5U4`y8;ag9)K{qox@N_rNi41a4)KFKacN6$K34M}l+9Z^EmOjPSCC){C(*ne;w?Wty6|3+5&aI$-CW7P#FI?|{-ATiuUl(a!)V|<e'
+    'zk0~W@6)6^3q<Phq2fu8P#$oDr9$v7zmtp&`r%N$YBX3lB%DTTTKDZvY61JQ@F7B616IplzzF?geBdpFZY*ReC#<Ox<i<=B*{~%}%GX@03+__&?e{ns8zK*;'
+    'uvvs{+VzW_#9}Ph1MLNR##w>qG8--(?uWS)++@t@X)tNp0JIrBHiT}D&C<60SYX^HaJ>|97dYWw%SNta6uj~JA|5K@4&8=@-DPptAnu^eigvBaY-2Z|ozexN'
+    'I=xz0+Jew;TIh{@)ItL9N|4R`OTovr<M!FN*8{b#!L;Y16}GMBTMgTlec2WBr2&%->hiBiQg*x)C`PW-U;kZ#ud#QVRI&eSJJ%Z+sji4}f$2n0b+^)F-b<nA'
+    '>tX+Ya<Dld8og)pB;!DZX>JyH^e|VNWeaxKQRv2~FJy!HUppKgm^cjeAt=X6cFf-`7Mrz4)<eKN>w^1$JfE;{SPolbziP|Cw**w!Qjurb6{v4J_<nVh2k_{&'
+    'V>0i-iQ8efB-eHu*9rcuyurKKHeKzS-EEqk?U@JLGV&yCQdi(;HP$ApIoit{b9F!3+GXnTQka0Koj0yo<39>h@xH0J$>lw<+WJjUtE+mr6)9_09doAUw~OjW'
+    'X%a=xS4U-uM?Sjq)A_7bH}pnfa4WCQ)LvV!8_T+r(R7TbX;EX?2Dxq2MA_7hwclw^+QprxK($!LnAT9#vJGzi(ra=vS5b@ZynTlCT;ZjO%w(Ex)A8MoJ>g`#'
+    'DeEmNxHVy3TXM9{*A1e`Z+j}jwppLt>a5YZZhbPVQ`Yw7)9q?!ZnZJDS&X~+9J;Ym6I{3HPP1EceLukFvF)9$SC$l`_>G-il{o|lS|vjK7W$ma#?5i{a$WdC'
+    '>QUpHWpP;s=T)(pRd^NZsJNz2Ouog`<wXzXh?1C(?Du_T11thEZ+c~tEe63&QkKw(?>j2WWRO+1PsA)sqgZyzzpWsY)SEcP#E{n?WjZ$cRD`8jQva#Crc8rC'
+    '{i<=K>b?w+a}q`Kd=^E0))dphXnb@Oc5{W{P)6FT?D))bZ)jl0nKx8YQ{Sz&JR1iz;u(z$coJ<=Ai@^x#pX54SJ~|YT8p(k#HA0dF~WHwBITAzww`FFI)C?;'
+    'QYm_N2B=et{8R{EB+|!sH0hQgz_+8C1>(9$sFn)w$2*MpEKk?<v)r+9&^x%6ky9~+hr2i0-^U0hUdzgkGXNZ<9znl_h2b5be9f$nh8TqU_u_QwPn#k=izMi6'
+    'b7|85hD2dg(n4}YIlseX7y5N0Tm6P@oqQHzo;ax%teVT44-hTvn`^KUHQX^46FcFv+;qLTDSc>7!&ny}Vfn4jJFyYUi=1W$#2XUOvVZU1?(Em1WgdI396zAP'
+    'kkT37;@!(AUnhmU0xh=l&S=!S6Eok?TsA#`O$tAsOomMq(T91W2)C>#lKD%-x;ZEGjz6au@c<hdfcYOqSCjV'
+)
+
+
+def _embedded_installer_main(arguments):
+    try:
+        source = zlib.decompress(base64.b85decode(_EMBEDDED_INSTALLER_B85))
+    except (ValueError, zlib.error):
+        print(json.dumps({"ok": False, "status": "installer_integrity_failed"}, sort_keys=True))
+        return 2
+    if hashlib.sha256(source).hexdigest() != _EMBEDDED_INSTALLER_SHA256:
+        print(json.dumps({"ok": False, "status": "installer_integrity_failed"}, sort_keys=True))
+        return 2
+    namespace = {
+        "__name__": "zhiku_embedded_suite_installer",
+        "__file__": str(Path(__file__).resolve()),
+        "__package__": None,
+    }
+    try:
+        exec(compile(source, "<zhiku-install-suite>", "exec"), namespace)
+        entrypoint = namespace["main"]
+    except (KeyError, SyntaxError, TypeError, ValueError):
+        print(json.dumps({"ok": False, "status": "installer_integrity_failed"}, sort_keys=True))
+        return 2
+    return int(entrypoint(arguments))
+
+
+def _release_factory_main(arguments):
+    """Delegate release control to Core; this public wrapper owns no policy."""
+    try:
+        core_root = private_core_root()
+    except SystemExit:
+        print(json.dumps({"ok": False, "status": "release_factory_unavailable"}, sort_keys=True))
+        return 2
+    module = core_root / "systems/zhiku/release/release_factory.py"
+    if not module.is_file() or module.is_symlink():
+        print(json.dumps({"ok": False, "status": "release_factory_unavailable"}, sort_keys=True))
+        return 2
+    return subprocess.call(
+        [sys.executable, str(module), *arguments],
+        cwd=str(core_root),
+    )
+
+
+BASE = os.environ.get("ZHIKU_API_BASE", "https://os-zk.84000.art/zhiku-api")
+BEACON_URL = os.environ.get("ZHIKU_BEACON_URL", "https://os-zk.84000.art/zhiku-mcp/event")
+PROOF_URL = os.environ.get("ZHIKU_EVENT_PROOF_URL", "https://os-zk.84000.art/zhiku-mcp/event-proof")
+# match.py / H5 / CLI must move together. The deploy generator refuses drift.
+SCORE_FORMULA_VERSION = "lex-v3-suite-usage"
+CACHE_DIR = os.path.expanduser("~/.cache/zhiku")
+CACHE = os.path.join(CACHE_DIR, "catalog.json")
+PROFILE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "profiles")
+WORKSPACE = Path(os.environ.get("ZHIKU_WORKSPACE", Path.home() / ".local" / "share" / "zhiku"))
+MAX_ROOT = Path(os.environ.get("ZHIKU_MAX_ROOT", WORKSPACE / "strategic-projects" / "zhiku-market-max"))
+GOVERNOR_HOME = Path(
+    os.environ.get(
+        "ZHIKU_GOVERNOR_HOME",
+        os.environ.get(
+            "ZHIKU_SKILL_HOME",
+            Path.home() / ".local" / "share" / "zhiku-skill-governor",
+        ),
+    )
+)
+OPERATE_RECEIPTS = Path(
+    os.environ.get(
+        "ZHIKU_OPERATE_RECEIPTS",
+        GOVERNOR_HOME / "receipts" / "operate",
+    )
+)
+TTL = 24 * 3600
+TYPES = ("skills", "agents", "commands", "mcps", "settings", "hooks")
+FLAGS = {"skills": "--skill", "agents": "--agent", "commands": "--command",
+         "mcps": "--mcp", "settings": "--setting", "hooks": "--hook"}
+TYPE_HINTS = {
+    "mcps": ("mcp", "mcps", "connector", "连接器"),
+    "hooks": ("hook", "hooks", "钩子"),
+    "settings": ("setting", "settings", "配置", "设置"),
+    "agents": ("agent", "agents", "subagent", "智能体", "子代理", "代理"),
+    "commands": ("command", "commands", "slash command", "斜杠命令", "命令", "指令"),
+    "skills": ("skill", "skills", "技能"),
+}
+PERMISSION_LEVELS = ("inspect", "draft", "apply", "publish_or_pay")
+AUTHORING_CORE_BLOCKER = "blocked_authoring_core_untrusted"
+SKILL_CANONICAL_ID = re.compile(
+    r"^zk:(?:skill:[a-z0-9]+(?:-[a-z0-9]+)*|skills:[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*)$"
+)
+
+
+def _file_sha256(path):
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def _git_read(root, *args):
+    result = subprocess.run(
+        ["git", "-C", str(root), *args],
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return {
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }
+
+
+def _block_authoring_core(reason):
+    raise SystemExit(f"{AUTHORING_CORE_BLOCKER}:{reason}")
+
+
+def _trusted_authoring_core(runtime_root):
+    governor_home = Path(
+        os.environ.get(
+            "ZHIKU_GOVERNOR_HOME",
+            Path.home() / ".local/share/zhiku-skill-governor",
+        )
+    ).expanduser()
+    receipt_path = governor_home / "automation/daily-install-receipt.json"
+    try:
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        metadata = json.loads((runtime_root / "runtime-metadata.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        _block_authoring_core("install_receipt_or_runtime_metadata_missing")
+    if not (
+        receipt.get("schema") == "zhiku_skill_governor_daily_install_receipt_v2"
+        and receipt.get("status") == "installed"
+        and receipt.get("source_dirty") is False
+        and receipt.get("external_writes") is False
+    ):
+        _block_authoring_core("install_receipt_not_trusted")
+    commit = str(metadata.get("commit") or "")
+    if not commit or receipt.get("commit") != commit:
+        _block_authoring_core("install_receipt_commit_mismatch")
+    try:
+        installed_runtime = Path(str(receipt.get("runtime") or "")).expanduser().resolve()
+    except OSError:
+        _block_authoring_core("install_receipt_runtime_invalid")
+    if installed_runtime != runtime_root.resolve():
+        _block_authoring_core("install_receipt_runtime_mismatch")
+    core_root = Path(str(receipt.get("core_root") or "")).expanduser()
+    engine = core_root / "systems/zhiku/forge/skill_governor.py"
+    runtime_engine = runtime_root / "systems/zhiku/forge/skill_governor.py"
+    if not engine.is_file() or not runtime_engine.is_file():
+        _block_authoring_core("authoring_engine_missing")
+    head = _git_read(core_root, "rev-parse", "HEAD")
+    if head["returncode"] != 0:
+        _block_authoring_core("authoring_commit_query_failed")
+    if head["stdout"] != commit:
+        _block_authoring_core("authoring_commit_mismatch")
+    status = _git_read(
+        core_root,
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+    )
+    if status["returncode"] != 0:
+        _block_authoring_core("authoring_status_query_failed")
+    if status["stdout"]:
+        _block_authoring_core("authoring_worktree_dirty")
+    engine_hash = _file_sha256(engine)
+    if not engine_hash or engine_hash != _file_sha256(runtime_engine):
+        _block_authoring_core("authoring_engine_hash_mismatch")
+    if receipt.get("engine_hash") != engine_hash or metadata.get("engine_hash") != engine_hash:
+        _block_authoring_core("authoring_engine_attestation_mismatch")
+    return core_root.resolve()
+
+
+def private_core_root():
+    try:
+        runtime_or_core = Path(__file__).resolve().parents[4]
+    except IndexError:
+        _block_authoring_core("entrypoint_root_unknown")
+    configured = os.environ.get("ZHIKU_CORE_ROOT")
+    if configured:
+        root = Path(configured).expanduser().resolve()
+        if not (root / "systems/zhiku/forge/skill_governor.py").is_file():
+            _block_authoring_core("configured_core_invalid")
+        if (runtime_or_core / "runtime-metadata.json").is_file():
+            trusted = _trusted_authoring_core(runtime_or_core)
+            if root != trusted:
+                _block_authoring_core("configured_core_not_attested")
+        return root
+    if (runtime_or_core / "runtime-metadata.json").is_file():
+        return _trusted_authoring_core(runtime_or_core)
+    if not (runtime_or_core / "systems/zhiku/forge/skill_governor.py").is_file():
+        _block_authoring_core("private_control_plane_unavailable")
+    return runtime_or_core
+
+# 中→英领域词映射（与网页版 AI 助理同源算法）
+ZH2EN = {
+"视频": ["video", "clip"], "剪辑": ["video", "edit", "clip", "cut"], "剪映": ["capcut", "jianying"],
+"短视频": ["video", "tiktok", "short"], "抖音": ["douyin", "tiktok", "video"],
+"小红书": ["xiaohongshu", "xhs", "rednote", "social"], "微博": ["weibo", "social"], "推特": ["twitter", "social"],
+"公众号": ["wechat", "article", "writing", "content"], "微信": ["wechat"],
+"写作": ["writing", "writer", "article"], "文章": ["article", "writing", "content"],
+"长文": ["article", "writing", "longform"], "文案": ["copywriting", "copy", "marketing"],
+"营销": ["marketing", "growth", "seo"], "推广": ["marketing", "promotion"],
+"飞书": ["feishu", "lark"], "多维表": ["bitable", "lark", "base"],
+"表格": ["spreadsheet", "excel", "sheet", "xlsx"], "文档": ["document", "docx", "doc"],
+"幻灯": ["slides", "pptx", "presentation"], "演示": ["presentation", "slides", "pptx"],
+"简历": ["resume", "cv"], "邮件": ["email", "mail", "gmail"],
+"日历": ["calendar", "schedule"], "日程": ["calendar", "schedule", "planning"],
+"提醒": ["reminder", "notification"], "定时": ["cron", "schedule", "timer"],
+"爬虫": ["scrape", "crawler", "scraping", "spider"], "抓取": ["scrape", "fetch", "crawl", "extract"],
+"浏览器": ["browser", "chrome", "playwright"], "自动化": ["automation", "workflow", "automate"],
+"工作流": ["workflow", "automation", "n8n", "pipeline"], "流程": ["workflow", "process"],
+"数据库": ["database", "sql", "postgres", "sqlite"], "数据分析": ["data", "analysis", "analytics"],
+"可视化": ["visualization", "chart", "dashboard"], "图表": ["chart", "diagram", "graph"],
+"仪表盘": ["dashboard", "cockpit"], "看板": ["dashboard", "kanban", "board"], "报告": ["report", "reporting"],
+"海报": ["poster", "canvas", "design", "image"], "封面": ["cover", "image", "thumbnail"],
+"图片": ["image", "photo", "picture"], "配图": ["image", "illustration"],
+"画图": ["diagram", "drawing", "draw"], "插画": ["illustration", "art", "image"],
+"设计": ["design", "ui", "frontend"], "审美": ["design", "taste", "aesthetic"],
+"前端": ["frontend", "react", "vue", "web", "ui"], "后端": ["backend", "api", "server"],
+"网页": ["web", "html", "page", "website"], "网站": ["website", "web", "site"],
+"落地页": ["landing", "page", "web"], "部署": ["deploy", "deployment", "hosting"],
+"上线": ["deploy", "launch", "release"], "发布": ["release", "publish", "deploy"],
+"测试": ["test", "testing", "qa", "e2e"], "调试": ["debug", "debugging", "troubleshoot"],
+"重构": ["refactor", "refactoring"], "审查": ["review", "audit"], "代码审查": ["code-review", "review"],
+"盘点": ["inventory", "audit"], "治理": ["governance", "governor", "audit"],
+"生态": ["skill", "ecology", "catalog"], "蒸馏": ["distill", "distillation", "extract"],
+"调用": ["usage", "invocation", "route", "routing"],
+"安全": ["security", "vulnerability", "audit"], "漏洞": ["vulnerability", "security", "exploit"],
+"性能": ["performance", "optimize", "speed"], "优化": ["optimize", "optimization", "performance"],
+"翻译": ["translate", "translation", "i18n"], "多语言": ["i18n", "localization", "translation"],
+"语音": ["speech", "voice", "audio"], "转写": ["transcribe", "transcription", "whisper"],
+"转录": ["transcribe", "transcription", "whisper"], "音频": ["audio", "sound"], "音乐": ["music", "audio"],
+"播客": ["podcast", "audio"], "字幕": ["subtitle", "caption", "srt"], "直播": ["live", "stream", "streaming"],
+"研究": ["research", "analysis"], "调研": ["research", "survey", "investigate"],
+"产品": ["product"], "产品战略": ["product", "strategy", "strategist", "roadmap", "positioning"],
+"战略": ["strategy", "strategist", "roadmap", "planning"], "路线图": ["roadmap", "planning"],
+"优先级": ["priority", "prioritization"], "市场分析": ["market", "analysis", "research"],
+"竞争分析": ["competitive", "analysis", "intelligence"],
+"论文": ["paper", "academic", "research", "arxiv"], "总结": ["summary", "summarize"],
+"摘要": ["summary", "abstract"], "笔记": ["note", "notes", "obsidian"],
+"知识库": ["knowledge", "wiki", "notebook"], "记忆": ["memory", "recall"],
+"提示词": ["prompt", "prompting"], "智能体": ["agent", "agents"],
+"股票": ["stock", "trading", "finance"], "投资": ["investment", "finance", "trading"],
+"财务": ["finance", "financial", "accounting"], "财报": ["financial", "earnings", "report"],
+"量化": ["quant", "trading", "backtest"], "加密货币": ["crypto", "blockchain"], "区块链": ["blockchain", "crypto", "web3"],
+"法律": ["legal", "law", "contract"], "合同": ["contract", "legal"],
+"招聘": ["recruiting", "hiring", "hr"], "面试": ["interview", "hiring"],
+"课程": ["course", "education", "teaching"], "教学": ["teaching", "education", "tutorial"],
+"学习": ["learning", "education", "study"], "游戏": ["game", "gaming"],
+"地图": ["map", "location", "geo"], "天气": ["weather"], "新闻": ["news", "feed"],
+"订阅": ["rss", "subscription", "feed"], "下载": ["download", "fetch"], "上传": ["upload"],
+"备份": ["backup", "sync"], "同步": ["sync", "synchronize"], "监控": ["monitor", "monitoring", "alert"],
+"告警": ["alert", "alerting", "notification"], "通知": ["notification", "notify", "push"],
+"任务管理": ["task", "todo", "project"], "项目管理": ["project", "management", "jira"],
+"文件": ["file", "files"], "整理": ["organize", "cleanup", "tidy"], "重命名": ["rename"],
+"格式化": ["format", "formatting", "lint"], "提交": ["commit", "git"], "分支": ["branch", "git"],
+"合并": ["merge", "git"], "仓库": ["repo", "repository", "github"], "接口": ["api", "endpoint"],
+"文档生成": ["documentation", "docs"], "架构": ["architecture", "diagram", "system"],
+"图标": ["icon", "logo"], "商标": ["logo", "brand"], "品牌": ["brand", "branding"],
+"选品": ["product", "sourcing", "ecommerce"], "电商": ["ecommerce", "shop", "product"],
+"客服": ["support", "customer", "service"], "问卷": ["survey", "form"], "表单": ["form", "input"],
+"密码": ["password", "auth", "credential"], "登录": ["auth", "login", "oauth"], "权限": ["permission", "auth", "access"],
+}
+STOP = re.compile(r"^(我要|我想|想要|帮我|请帮|帮忙|给我|怎么|如何|有没有|哪个|什么|一个|一份|一篇|一条|需要|用来|可以|能不能|做个|做一个|搞个|弄个|请问)")
+
+
+def fetch_json(base, name, refresh):
+    cache = os.path.join(CACHE_DIR, name.replace("/", "-"))
+    has_cache = os.path.exists(cache)
+    if not refresh and has_cache and time.time() - os.path.getmtime(cache) < TTL:
+        with open(cache, encoding="utf-8") as f:
+            return json.load(f)
+    url = base.rstrip("/") + "/" + name
+    headers = {"User-Agent": "zhiku-cli/0.4"}
+    if has_cache:
+        headers["If-Modified-Since"] = time.strftime(
+            "%a, %d %b %Y %H:%M:%S GMT", time.gmtime(os.path.getmtime(cache))
+        )
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            data = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        if exc.code == 304 and has_cache:
+            os.utime(cache, None)
+            with open(cache, encoding="utf-8") as f:
+                return json.load(f)
+        raise
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    with open(cache, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+    return data
+
+
+def fetch_catalog(base, refresh):
+    return fetch_json(base, "catalog.json", refresh)
+
+
+def fetch_usage(base, refresh):
+    """Return aggregate usage weights; missing endpoints fail open to zero."""
+    try:
+        return (fetch_json(base, "usage.json", refresh) or {}).get("usage", {}) or {}
+    except Exception:
+        return {}
+
+
+def _client_id():
+    """自愿代号（ZHIKU_CLIENT_ID env，slug 2-24 位）；不设/非法 = 匿名如旧。"""
+    cid = (os.environ.get("ZHIKU_CLIENT_ID") or "").strip().lower()
+    return cid if re.fullmatch(r"[a-z0-9][a-z0-9_-]{1,23}", cid) else ""
+
+
+def send_beacon(query, returned_paths, tool="search", selected=None):
+    """Send a best-effort anonymous usage signal after results are printed."""
+    if os.environ.get("ZHIKU_NO_TELEMETRY") == "1":
+        return
+    try:
+        q_hash = hashlib.sha256((query or "").strip().lower().encode("utf-8")).hexdigest()[:12]
+        proof_req = urllib.request.Request(PROOF_URL + "?source=cli", headers={"User-Agent": "zhiku-cli/0.5"})
+        proof = json.loads(urllib.request.urlopen(proof_req, timeout=3).read().decode("utf-8")).get("proof")
+        if not proof:
+            return
+        payload = {
+            "tool": tool,
+            "source": "cli",
+            "q_hash": q_hash,
+            "returned": [p for p in (returned_paths or [])[:20] if p],
+            "proof": proof,
+        }
+        if selected:
+            payload["selected"] = selected           # 强信号：CLI 侧的采纳/安装目标 path
+        cid = _client_id()
+        if cid:
+            payload["client_id"] = cid
+        body = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            BEACON_URL,
+            data=body,
+            headers={"Content-Type": "text/plain", "User-Agent": "zhiku-cli/0.5"},
+        )
+        urllib.request.urlopen(req, timeout=3)
+    except Exception:
+        pass
+
+
+def _routing_receipt_root():
+    configured = os.environ.get("ZHIKU_USAGE_RECEIPT_HOME")
+    if configured:
+        return Path(configured).expanduser()
+    governor_home = Path(
+        os.environ.get(
+            "ZHIKU_GOVERNOR_HOME",
+            Path.home() / ".local/share/zhiku-skill-governor",
+        )
+    ).expanduser()
+    return governor_home / "usage-inbox"
+
+
+def _routing_canonical_id(t, it, profiles):
+    if t != "skills":
+        return ""
+    profile = profile_for(t, it, profiles)
+    canonical_id = str(
+        profile.get("canonical_id") or it.get("canonical_id") or ""
+    )
+    if SKILL_CANONICAL_ID.fullmatch(canonical_id):
+        return canonical_id
+    name = re.sub(
+        r"[^a-z0-9]+",
+        "-",
+        str(it.get("name") or "").strip().lower(),
+    ).strip("-")
+    fallback = f"zk:skill:{name}" if name else ""
+    return fallback if SKILL_CANONICAL_ID.fullmatch(fallback) else ""
+
+
+def write_routing_receipts(query, hits, profiles, evolution_note=None):
+    """Persist privacy-minimized local recommendation exposure receipts.
+
+    The query and task identifiers are hashed and never stored. A caller may
+    provide ``ZHIKU_USAGE_EVENT_ID`` to make retries of the same routing event
+    idempotent; otherwise each CLI invocation is a new recommendation event.
+
+    ``evolution_note`` is the optional third ring of the SOUL evidence loop
+    (no Evolution Note -> no Done): a short reusable lesson from this routing
+    event. It is written into every receipt of the event when provided and
+    omitted otherwise. Returns the receipt file paths written (or already
+    present, for idempotent retries), so callers can honestly verify evidence
+    backflow per candidate from the receipts on disk.
+    """
+    if os.environ.get("ZHIKU_NO_LOCAL_USAGE_RECEIPTS") == "1":
+        return []
+    event_source = os.environ.get("ZHIKU_USAGE_EVENT_ID") or (
+        f"route:{utc_now()}:{os.getpid()}:{uuid.uuid4().hex}"
+    )
+    task_source = os.environ.get("ZHIKU_TASK_ID") or re.sub(
+        r"\s+", " ", str(query or "").strip().lower()
+    )
+    task_hash = hashlib.sha256(task_source.encode("utf-8")).hexdigest()[:16]
+    occurred_at = utc_now()
+    root = _routing_receipt_root()
+    written = []
+    for rank, (_, t, it) in enumerate(hits, 1):
+        canonical_id = _routing_canonical_id(t, it, profiles)
+        if not canonical_id:
+            continue
+        event_hash = hashlib.sha256(
+            f"{event_source}|{canonical_id}".encode("utf-8")
+        ).hexdigest()[:16]
+        receipt_key = json.dumps(
+            {
+                "canonical_id": canonical_id,
+                "client": "zhiku_cli",
+                "event_hash": event_hash,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        receipt_id = "zkur2-" + hashlib.sha256(
+            receipt_key.encode("utf-8")
+        ).hexdigest()[:16]
+        receipt = {
+            "schema": "skill_usage_receipt_v2",
+            "receipt_id": receipt_id,
+            "occurred_at": occurred_at,
+            "canonical_id": canonical_id,
+            "client": "zhiku_cli",
+            "event_hash": event_hash,
+            "task_hash": task_hash,
+            "task_type": "skill-routing",
+            "event": "recommended",
+            "note": f"router recommendation rank={rank}",
+            "duration_ms": None,
+            "raw_conversation_stored": False,
+        }
+        if evolution_note:
+            receipt["evolution_note"] = str(evolution_note)[:500]
+        target = root / f"{receipt_id}.json"
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+            with target.open("x", encoding="utf-8") as stream:
+                json.dump(receipt, stream, ensure_ascii=False, indent=2)
+                stream.write("\n")
+        except FileExistsError:
+            # Idempotent retry: the receipt already exists on disk, so the
+            # evidence backflow for this candidate is still real.
+            written.append(str(target))
+            continue
+        except OSError:
+            continue
+        written.append(str(target))
+    return written
+
+
+def _telemetry_client():
+    """Return the consent-gated private client without affecting routing."""
+    try:
+        core_root = private_core_root()
+        if str(core_root) not in sys.path:
+            sys.path.insert(0, str(core_root))
+        from systems.zhiku.telemetry.client import TelemetryClient
+        client = TelemetryClient()
+        return client if client.enabled() else None
+    except (Exception, SystemExit):
+        return None
+
+
+def write_component_telemetry(query, hits):
+    """Record the all-component eligibility/recommendation funnel privately."""
+    client = _telemetry_client()
+    if client is None:
+        return
+    type_map = {
+        "skills": "skill", "agents": "agent", "commands": "command",
+        "mcps": "mcp", "settings": "setting", "hooks": "hook",
+    }
+    try:
+        from systems.zhiku.telemetry.client import classify_task_locally
+        task_type = classify_task_locally(query)
+        candidates = [
+            (type_map[t], str(it.get("name") or it.get("path") or "unknown"))
+            for _, t, it in hits if t in type_map
+        ]
+        client.record_eligibility(
+            task_source=query, task_type=task_type, candidates=candidates,
+            completeness="complete", reason="observed" if candidates else "no_applicable_component",
+            client="zhiku_cli", client_version="0.5",
+        )
+        for component_type, canonical_id in candidates:
+            client.record_usage(
+                component_type=component_type, canonical_id=canonical_id,
+                task_source=query, task_type=task_type, event="recommended",
+                client="zhiku_cli", client_version="0.5",
+            )
+    except Exception:
+        pass
+
+
+def write_cli_action_telemetry(command, target, outcome=None):
+    client = _telemetry_client()
+    if client is None:
+        return
+    try:
+        task_source = f"zhiku:{command}:{target}"
+        event = outcome or "invoked"
+        client.record_usage(
+            component_type="command", canonical_id=f"zhiku/{command}",
+            task_source=task_source, task_type="operations", event=event,
+            result_evidence="technical_execution" if event == "success" else "none",
+            error_class="client_error" if event == "failure" else None,
+            client="zhiku_cli", client_version="0.5",
+        )
+        if command == "install" and target:
+            skill_events = ["selected", "invoked"] if outcome is None else [event]
+            for skill_event in skill_events:
+                client.record_usage(
+                    component_type="skill", canonical_id=target,
+                    task_source=task_source, task_type="operations", event=skill_event,
+                    result_evidence="technical_execution" if skill_event == "success" else "none",
+                    error_class="client_error" if skill_event == "failure" else None,
+                    client="zhiku_cli", client_version="0.5",
+                )
+    except Exception:
+        pass
+
+
+def fetch_deep(base, t, refresh):
+    """deep/<type>.json → {path: 深度记录}; 端点不可用时静默退化（老服务器无 deep 也能跑）。"""
+    try:
+        data = fetch_json(base, "deep/" + t + ".json", refresh)
+        return {r.get("path"): r for r in data.get("items", [])}
+    except Exception:
+        return {}
+
+
+def load_profiles():
+    """Load local capability_profile_v1 dossiers if the skill package has them."""
+    maps = {}
+    for t in TYPES:
+        p = os.path.join(PROFILE_DIR, t + ".json")
+        try:
+            data = json.load(open(p, encoding="utf-8"))
+            maps[t] = {r.get("path"): r for r in data.get("items", [])}
+        except Exception:
+            maps[t] = {}
+    return maps
+
+
+def profile_for(t, it, profiles):
+    return (profiles.get(t) or {}).get(it.get("path")) or {}
+
+
+def profile_bonus(profile):
+    """Governance-aware tie-breaker.
+
+    Semantic match must dominate routing. Local availability, validation, and
+    usage make a close candidate better; they should not lift a weak semantic
+    hit above a clearly relevant remote component.
+    """
+    if not profile:
+        return 0.0
+    bonus = 0.0
+    status = ((profile.get("how_to_use") or {}).get("status") or "")
+    if status == "local_installed":
+        bonus += 2.0
+    elif status == "private_channel":
+        bonus += 0.6
+    usage = profile.get("usage") or {}
+    calls = usage.get("local_calls") or 0
+    try:
+        bonus += min(1.5, float(calls) * 0.15)
+    except Exception:
+        pass
+    validation = profile.get("validation") or {}
+    if validation.get("state") in ("validated", "pass", "green"):
+        bonus += 1.5
+    risk = profile.get("risk_signals") or []
+    if isinstance(risk, list):
+        bonus -= min(2.0, len(risk) * 0.5)
+    elif risk:
+        bonus -= 0.5
+    return bonus
+
+
+def confidence_for(score, profile):
+    base = min(0.88, 0.35 + float(score) / 120.0)
+    if profile:
+        rc = profile.get("routing_confidence")
+        if isinstance(rc, (int, float)):
+            base = (base + float(rc)) / 2
+    return round(max(0.05, min(0.98, base)), 2)
+
+
+def max_mode_for(t, it, profile):
+    risk = (profile or {}).get("risk_signals") or []
+    status = ((profile or {}).get("how_to_use") or {}).get("status") or ("private_channel" if it.get("mine") else "remote_install")
+    if t in ("hooks", "settings") or risk:
+        return "govern"
+    if "dashboard" in (it.get("description") or "").lower() or "cockpit" in (it.get("description") or "").lower():
+        return "cockpit"
+    if status == "local_installed":
+        return "route"
+    return "route"
+
+
+def confidence_grade(profile):
+    """Dual-track confidence label aligned with canon: 🟢 direct vs 🟡 inferred.
+
+    🟢 (直证) requires observed evidence on the profile: a green validation
+    state or recorded local usage. Everything else is 🟡 (推断). The 0-1
+    decimal ranks candidates; the grade governs decision display. Never
+    present a bare decimal behind a green badge without this check.
+    """
+    profile = profile or {}
+    validation = ((profile.get("validation") or {}).get("state") or "")
+    usage = profile.get("usage") or {}
+    try:
+        observed = float(usage.get("local_calls") or 0) > 0
+    except (TypeError, ValueError):
+        observed = False
+    if validation in ("validated", "pass", "green") or observed:
+        return "🟢"
+    return "🟡"
+
+
+# Canonical Three Seals (yuanli-os-greenbook A01/A07): recursive evolution /
+# skill commander (先 search 再 call) / human friendliness. "Global optimum"
+# is NOT a seal; it remains the internal ordering principle of route mode.
+GLOBAL_OPTIMUM_ORDERING_NOTE = (
+    "全局最优不是三法印；它是 route 模式内部的排序原则："
+    "最小可靠路由优先，本地可用 > 远程安装 > 无证据不推荐。"
+)
+_GATE_WORDS = ("人工", "审批", "确认", "权限", "approval", "review")
+
+
+def _seal(status, detail):
+    return {"status": status, "detail": detail}
+
+
+def three_seals_for(t, it, profile, context=None):
+    """Per-candidate real check of the canonical Three Seals.
+
+    ``context`` records what the caller actually did for this recommendation:
+      - ``search_performed``: {"catalog": bool, "local_profiles": bool} —
+        whether the catalog / local profiles were really searched first;
+      - ``receipts_written``: iterable of canonical ids that received a
+        usage receipt in this routing event;
+      - ``canonical_id``: this candidate's canonical id;
+      - ``next_step``: the exact next-step text emitted to the user.
+
+    Missing context means unverified, which reports ``warn`` — fail-closed,
+    never a decorative green template. Returns one dict per seal with
+    ``status`` in {"pass", "warn"} plus an ``overall`` rollup.
+    """
+    context = context or {}
+    profile = profile or {}
+    status = ((profile.get("how_to_use") or {}).get("status")
+              or ("private_channel" if it.get("mine") else "remote_install"))
+    validation = ((profile.get("validation") or {}).get("state") or "unknown")
+    risk = profile.get("risk_signals") or []
+    usage = profile.get("usage") or {}
+    try:
+        local_calls = float(usage.get("local_calls") or 0)
+    except (TypeError, ValueError):
+        local_calls = 0.0
+
+    # Seal 2 — skill commander: search before call.
+    search = context.get("search_performed")
+    if isinstance(search, dict):
+        catalog_searched = bool(search.get("catalog"))
+        profiles_searched = bool(search.get("local_profiles"))
+        if catalog_searched or profiles_searched:
+            commander = _seal(
+                "pass",
+                f"推荐前已检索：目录={'是' if catalog_searched else '否'}，"
+                f"本地 profiles={'是' if profiles_searched else '否'}（先 search 再 call）",
+            )
+        else:
+            commander = _seal("warn", "已记录检索上下文但目录与本地 profiles 均未命中检索；先 search 再 call 未达成")
+    else:
+        commander = _seal("warn", "无检索证据记录；无法核实是否先 search 再 call")
+
+    # Seal 1 — recursive evolution: evidence backflow for this candidate.
+    canonical_id = str(context.get("canonical_id") or "")
+    receipt_ids = set(context.get("receipts_written") or [])
+    if canonical_id and canonical_id in receipt_ids:
+        evolution = _seal("pass", f"本次路由已为 {canonical_id} 写入 usage receipt，证据回流成立")
+    elif validation in ("validated", "pass", "green"):
+        evolution = _seal("pass", f"profile 已有验证证据（state={validation}），使用后应刷新")
+    elif local_calls > 0:
+        evolution = _seal("pass", f"profile 已有本地调用记录（{int(local_calls)} 次），使用后应刷新")
+    else:
+        evolution = _seal("warn", "本候选无 receipt/验证/用量回流；按 internal-dry-run 对待，禁止呈现为已验证")
+
+    # Seal 3 — human friendliness: only human-decision items, gates intact.
+    needs_gate = (
+        t in ("hooks", "settings")
+        or status == "private_channel"
+        or (bool(risk) and status != "local_installed")
+    )
+    next_step = str(context.get("next_step") or "")
+    if needs_gate:
+        if next_step and any(word in next_step for word in _GATE_WORDS):
+            friendly = _seal("pass", f"高暴露面（{status}）已挂人工门，仅呈现需人决策项")
+        else:
+            friendly = _seal("warn", "高暴露面候选的对外文案未核实人工门；不得直接呈现安装/执行指令")
+    else:
+        burden = "本地已装，直接调用" if status == "local_installed" else "远程候选，安装前给出一项人工确认"
+        friendly = _seal("pass", f"低负担路由：{burden}；无不可逆外部写入")
+
+    seals = {
+        "recursive_evolution": evolution,
+        "skill_commander": commander,
+        "human_friendliness": friendly,
+    }
+    seals["overall"] = (
+        "pass"
+        if all(seal["status"] == "pass" for seal in seals.values())
+        else "warn"
+    )
+    return seals
+
+
+def backwrite_for(t, it, profile, context=None):
+    """Required MAX output field 回流 (backwrite): where evidence must flow.
+
+    The contract is fail-closed: the field is always present, and when no
+    backwrite target exists it says so explicitly with a reason instead of
+    omitting the field or inventing one.
+    """
+    context = context or {}
+    profile = profile or {}
+    canonical_id = str(context.get("canonical_id") or "")
+    receipt_ids = set(context.get("receipts_written") or [])
+    if canonical_id and canonical_id in receipt_ids:
+        return {
+            "target": "usage_receipt",
+            "reason": f"本次路由已为 {canonical_id} 写入 skill_usage_receipt_v2",
+        }
+    validation = ((profile.get("validation") or {}).get("state") or "")
+    usage = profile.get("usage") or {}
+    try:
+        local_calls = float(usage.get("local_calls") or 0)
+    except (TypeError, ValueError):
+        local_calls = 0.0
+    if validation in ("validated", "pass", "green") or local_calls > 0:
+        return {
+            "target": "profile",
+            "reason": "profile 已有验证/用量证据；本次使用结果应回流刷新该 profile",
+        }
+    if t in ("hooks", "settings") or (profile.get("risk_signals") or []):
+        return {
+            "target": "risk_item",
+            "reason": "高暴露面且零用量证据；安装前应在风险/决策板登记一项人工复核",
+        }
+    return {
+        "target": "none",
+        "reason": "无回流目标：候选无 profile 验证、无用量、本次未写入 receipt；先完成真实检索与试用再推荐",
+    }
+
+
+def next_step_for(t, it, profile):
+    status = ((profile or {}).get("how_to_use") or {}).get("status") or ("private_channel" if it.get("mine") else "remote_install")
+    if status == "local_installed":
+        return "直接使用本地已装能力，并把结果写入 receipt 或 profile 回流。"
+    if status == "private_channel":
+        return "先确认私有共享权限；只读元数据可用于判断，不公开安装。"
+    if t in ("hooks", "settings"):
+        return "先人工复核事件、matcher、权限和风险，再决定是否安装。"
+    return "如确认需要，按安装命令安装；安装后运行最小 smoke test。"
+
+
+def utc_now():
+    return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+
+
+def short_slug(value, limit=36):
+    value = re.sub(r"[^a-zA-Z0-9\u4e00-\u9fff]+", "-", str(value or "operate")).strip("-")
+    return (value or "operate")[:limit].strip("-") or "operate"
+
+
+def load_json_file(path, default):
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except Exception:
+        return default
+
+
+def write_json_file(path, data):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def normalize_recipe(recipe):
+    if not isinstance(recipe, dict):
+        raise ValueError("operation_recipe_v1 must be a JSON object")
+    out = dict(recipe)
+    out.setdefault("schema", "operation_recipe_v1")
+    out.setdefault("executor", "ego-browser")
+    out.setdefault("permission_level", "inspect")
+    out.setdefault("planned_steps", [])
+    out.setdefault("checkpoints", [])
+    out.setdefault("rollback_note", "No external write should be made without a fresh human gate.")
+    out.setdefault("risk_tags", [])
+    out.setdefault("component_path", None)
+    missing = [k for k in ("intent", "target_url") if not out.get(k)]
+    if missing:
+        raise ValueError("recipe missing required field(s): " + ", ".join(missing))
+    if out.get("executor") != "ego-browser":
+        raise ValueError("only executor=ego-browser is supported in v1")
+    if out.get("permission_level") not in PERMISSION_LEVELS:
+        raise ValueError("permission_level must be one of: " + ", ".join(PERMISSION_LEVELS))
+    if not re.match(r"^https?://", str(out.get("target_url"))):
+        raise ValueError("target_url must be an http(s) URL")
+    if not isinstance(out.get("planned_steps"), list):
+        raise ValueError("planned_steps must be a list")
+    if not isinstance(out.get("checkpoints"), list):
+        raise ValueError("checkpoints must be a list")
+    if not isinstance(out.get("risk_tags"), list):
+        raise ValueError("risk_tags must be a list")
+    return out
+
+
+def _sensitive_hash(value):
+    return hashlib.sha256(str(value or "").encode("utf-8")).hexdigest()
+
+
+def _safe_url_origin(value):
+    try:
+        parsed = urllib.parse.urlsplit(str(value or ""))
+        if not parsed.scheme or not parsed.hostname:
+            return "redacted"
+        host = parsed.hostname
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        port = f":{parsed.port}" if parsed.port else ""
+        return f"{parsed.scheme}://{host}{port}"
+    except Exception:
+        return "redacted"
+
+
+def receipt_safe_recipe(recipe):
+    target = recipe.get("target_url")
+    intent = recipe.get("intent")
+    component_path = recipe.get("component_path")
+    source_intent_hash = str(recipe.get("source_intent_hash") or "")
+    if not re.fullmatch(r"[0-9a-f]{64}", source_intent_hash, re.I):
+        source_intent_hash = _sensitive_hash(source_intent_hash) if source_intent_hash else None
+    safe = {
+        "schema": "operation_recipe_v1",
+        "executor": recipe.get("executor"),
+        "permission_level": recipe.get("permission_level"),
+        "allow_apply": recipe.get("allow_apply") is True,
+        "apply_implemented": recipe.get("apply_implemented") is True,
+        "static_h5_executes_browser": recipe.get("static_h5_executes_browser") is True,
+        "receipt_redaction": "wechat_agent" if recipe.get("receipt_redaction") == "wechat_agent" else "default",
+        "source_intent_hash": source_intent_hash,
+        "planned_step_count": len(recipe.get("planned_steps") or []),
+        "checkpoint_count": len(recipe.get("checkpoints") or []),
+        "risk_tag_count": len(recipe.get("risk_tags") or []),
+        "component_ref_hash": _sensitive_hash(component_path) if component_path else None,
+    }
+    safe["target_url"] = _safe_url_origin(target)
+    safe["target_url_hash"] = _sensitive_hash(target)
+    safe["intent_hash"] = _sensitive_hash(intent)
+    safe["intent_length"] = len(str(intent or ""))
+    fields = recipe.get("draft_fields") or []
+    if fields:
+        safe["draft_field_hashes"] = [
+            {"selector_hash": _sensitive_hash(field.get("selector")), "value_hash": _sensitive_hash(field.get("value"))}
+            for field in fields if isinstance(field, dict)
+        ]
+    return safe
+
+
+def _safe_blocker(value):
+    text = str(value or "")
+    if re.fullmatch(r"[a-z0-9_:-]{1,120}", text):
+        return text
+    return "opaque_error:" + _sensitive_hash(text)[:16]
+
+
+def redact_operation_receipt(receipt):
+    receipt["target_url_hash"] = _sensitive_hash(receipt.get("target_url"))
+    receipt["target_url"] = _safe_url_origin(receipt.get("target_url"))
+    intent = receipt.pop("intent", "")
+    receipt["intent_hash"] = _sensitive_hash(intent)
+    receipt["intent_length"] = len(str(intent or ""))
+    component_path = receipt.pop("component_path", None)
+    receipt["component_ref_hash"] = _sensitive_hash(component_path) if component_path else None
+    task_space_id = receipt.pop("task_space_id", None)
+    receipt["task_space_id_hash"] = _sensitive_hash(task_space_id) if task_space_id else None
+    receipt["observations"] = [
+        {
+            "type": _safe_blocker(row.get("type") or "observation"),
+            "value_hash": _sensitive_hash(row.get("value")),
+            "value_length": len(str(row.get("value") or "")),
+        }
+        for row in (receipt.get("observations") or []) if isinstance(row, dict)
+    ]
+    cleaned_actions = []
+    for row in receipt.get("actions_taken") or []:
+        if not isinstance(row, dict):
+            continue
+        clean = {
+            "type": _safe_blocker(row.get("type") or "action"),
+            "submitted": row.get("submitted") is True,
+            "keep": row.get("keep") is True,
+        }
+        if row.get("selector"):
+            clean["selector_hash"] = _sensitive_hash(row["selector"])
+        cleaned_actions.append(clean)
+    receipt["actions_taken"] = cleaned_actions
+    receipt["blockers"] = [_safe_blocker(value) for value in receipt.get("blockers") or []]
+    receipt["handoff_events"] = [
+        {
+            "type": _safe_blocker(row.get("type") or "handoff"),
+            "reason_hash": _sensitive_hash(row.get("reason")),
+        }
+        for row in receipt.get("handoff_events") or []
+        if isinstance(row, dict)
+    ]
+    receipt["evidence_paths"] = [f"operate:{receipt.get('run_id')}"]
+    receipt["raw_observations_stored"] = False
+    receipt["local_paths_stored"] = False
+    receipt["raw_conversation_stored"] = False
+    return receipt
+
+
+def default_receipt(recipe, mode, run_id):
+    return {
+        "schema": "operation_run_receipt_v1",
+        "run_id": run_id,
+        "executor": recipe.get("executor", "ego-browser"),
+        "mode": mode,
+        "permission_level": recipe.get("permission_level"),
+        "component_path": recipe.get("component_path"),
+        "target_url": recipe.get("target_url"),
+        "intent": recipe.get("intent"),
+        "task_space_id": None,
+        "status": "created",
+        "observations": [],
+        "actions_taken": [],
+        "handoff_events": [],
+        "blockers": [],
+        "evidence_paths": [],
+        "started_at": utc_now(),
+        "finished_at": None,
+        "recipe": receipt_safe_recipe(recipe),
+    }
+
+
+def update_operate_governance(receipt):
+    OPERATE_RECEIPTS.mkdir(parents=True, exist_ok=True)
+    latest_receipts = sorted(OPERATE_RECEIPTS.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:10]
+    status = receipt.get("status")
+    run_id = receipt.get("run_id")
+
+    action_path = MAX_ROOT / "action-ledger.json"
+    action_doc = load_json_file(action_path, {"project_id": "zhiku-market-max", "items": []})
+    actions = action_doc.setdefault("items", [])
+    action = {
+        "id": "A6",
+        "title": "Operate with Ego 网页端 AI 自动操作任务包与本地执行层",
+        "owner": "Codex",
+        # Execution receipts alone never prove that the current H5/CLI
+        # distribution still exposes Operate. build_max_cockpit.py promotes
+        # this to done only after the hash-bound surface smoke gate passes.
+        "status": "review",
+        "priority": "P0",
+        "evidence_refs": [f"operate:{run_id}"],
+        "last_receipt": f"operate:{run_id}",
+    }
+    actions[:] = [a for a in actions if a.get("id") != "A6"] + [action]
+    write_json_file(action_path, action_doc)
+
+    risk_path = MAX_ROOT / "risk-register.json"
+    risk_doc = load_json_file(risk_path, {"project_id": "zhiku-market-max", "items": []})
+    risks = risk_doc.setdefault("items", [])
+    risk = {
+        "id": "R4",
+        "title": "网页自动操作必须维持 ego task space 隔离与人工门",
+        "level": "amber",
+        "mitigation": "H5 只生成 operation_recipe_v1；本地 zhiku operate 执行，apply 默认阻断，publish_or_pay 永远 handoff。",
+        "last_receipt": f"operate:{run_id}",
+    }
+    risks[:] = [r for r in risks if r.get("id") != "R4"] + [risk]
+    write_json_file(risk_path, risk_doc)
+
+    dashboard_path = MAX_ROOT / "dashboard-data.json"
+    dashboard = load_json_file(dashboard_path, {})
+    if dashboard:
+        dashboard.setdefault("automation_status", {})["operate_with_ego"] = {
+            "status": "receipt_recorded_surface_rebuild_required",
+            "last_execution_status": status,
+            "executor": receipt.get("executor"),
+            "last_receipt": f"operate:{run_id}",
+            "receipt_count": len(latest_receipts),
+            "permission_level": receipt.get("permission_level"),
+            "static_h5_executes_browser": False,
+            "surface_gate": "rebuild_required",
+        }
+        dashboard.setdefault("metrics", {})["operate_receipts"] = len(latest_receipts)
+        actions_data = dashboard.setdefault("actions", [])
+        actions_data[:] = [a for a in actions_data if a.get("id") != "A6"] + [action]
+        risks_data = dashboard.setdefault("risks", [])
+        risks_data[:] = [r for r in risks_data if r.get("id") != "R4"] + [risk]
+        write_json_file(dashboard_path, dashboard)
+
+
+def write_receipt(receipt):
+    receipt["finished_at"] = utc_now()
+    OPERATE_RECEIPTS.mkdir(parents=True, exist_ok=True)
+    out = OPERATE_RECEIPTS / f"{receipt['run_id']}.json"
+    write_json_file(out, receipt)
+    receipt["evidence_paths"] = [f"operate:{receipt['run_id']}"]
+    write_json_file(out, receipt)
+    update_operate_governance(receipt)
+    return out
+
+
+def run_ego_operation(recipe, receipt):
+    permission = recipe.get("permission_level")
+    if permission == "publish_or_pay":
+        receipt["status"] = "blocked_human_gate"
+        receipt["blockers"].append("publish_or_pay_requires_manual_handoff")
+        receipt["handoff_events"].append({
+            "type": "required_before_execution",
+            "reason": "publish/pay/delete/external-send operations are never automated in v1",
+        })
+        return receipt
+    if permission == "apply":
+        receipt["status"] = "blocked_apply_not_implemented"
+        receipt["blockers"].append("apply_requires_typed_actions_reversible_executor_and_verification_receipt")
+        return receipt
+
+    draft_fields = recipe.get("draft_fields") if isinstance(recipe.get("draft_fields"), list) else []
+    task_name = f"zhiku:{receipt['run_id']}:{short_slug(recipe.get('intent'))}"
+    js_recipe = json.dumps(recipe, ensure_ascii=False)
+    js = f"""
+const recipe = {js_recipe};
+const task = await useOrCreateTaskSpace({json.dumps(task_name)});
+const receipt = {{
+  task_space_id: task.id,
+  observations: [],
+  actions_taken: [],
+  handoff_events: [],
+  blockers: []
+}};
+try {{
+  await openOrReuseTab(recipe.target_url, {{ wait: true, timeout: 30 }});
+  const info = await pageInfo();
+  receipt.observations.push({{type: "page_info", value: info}});
+  if (info && info.dialog) {{
+    receipt.blockers.push("browser_dialog_open");
+  }} else {{
+    const snap = await snapshotText();
+    receipt.observations.push({{type: "snapshot_head", value: String(snap || "").slice(0, 1800)}});
+  }}
+  if (recipe.permission_level === "draft" && Array.isArray(recipe.draft_fields)) {{
+    for (const field of recipe.draft_fields) {{
+      if (!field || !field.selector || field.value == null) continue;
+      await fillInput(String(field.selector), String(field.value));
+      receipt.actions_taken.push({{type: "fillInput", selector: String(field.selector), submitted: false}});
+    }}
+    const after = await snapshotText();
+    receipt.observations.push({{type: "draft_verify_snapshot_head", value: String(after || "").slice(0, 1200)}});
+  }}
+  await completeTaskSpace(task.id, {{ keep: false }});
+  receipt.actions_taken.push({{type: "completeTaskSpace", keep: false}});
+  cliLog(JSON.stringify(receipt));
+}} catch (err) {{
+  receipt.blockers.push(String(err && err.message || err));
+  try {{ await completeTaskSpace(task.id, {{ keep: false }}); }} catch (closeErr) {{}}
+  cliLog(JSON.stringify(receipt));
+}}
+"""
+    proc = subprocess.run(["ego-browser", "nodejs"], input=js, text=True, capture_output=True, timeout=90)
+    combined_output = "\n".join(x for x in (proc.stdout, proc.stderr) if x)
+    if proc.returncode != 0:
+        receipt["status"] = "failed"
+        receipt["blockers"].append(combined_output.strip() or f"ego-browser exited {proc.returncode}")
+        return receipt
+    lines = [ln.strip() for ln in combined_output.splitlines() if ln.strip()]
+    payload = None
+    for line in reversed(lines):
+        try:
+            payload = json.loads(line)
+            break
+        except Exception:
+            continue
+    if not payload:
+        receipt["status"] = "failed"
+        receipt["blockers"].append("ego_browser_no_json_receipt")
+        if combined_output.strip():
+            receipt["observations"].append({"type": "ego_output", "value": combined_output[-2000:]})
+        return receipt
+    receipt["task_space_id"] = payload.get("task_space_id")
+    receipt["observations"].extend(payload.get("observations") or [])
+    receipt["actions_taken"].extend(payload.get("actions_taken") or [])
+    receipt["handoff_events"].extend(payload.get("handoff_events") or [])
+    receipt["blockers"].extend(payload.get("blockers") or [])
+    receipt["status"] = "completed" if not receipt["blockers"] else "blocked_needs_user"
+    return receipt
+
+
+def operate_main(args):
+    recipe_path, executor, mode = None, "ego-browser", "dry_run"
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a == "--recipe":
+            recipe_path = args[i + 1]; i += 2
+        elif a == "--executor":
+            executor = args[i + 1]; i += 2
+        elif a == "--dry-run":
+            mode = "dry_run"; i += 1
+        elif a == "--apply":
+            mode = "apply"; i += 1
+        elif a in ("-h", "--help"):
+            print("usage: zhiku operate --recipe operation_recipe_v1.json [--executor ego-browser] [--dry-run|--apply]")
+            return
+        else:
+            sys.exit(f"未知 operate 参数: {a}")
+    if not recipe_path:
+        sys.exit("operate requires --recipe <operation_recipe_v1.json>")
+    recipe = normalize_recipe(load_json_file(recipe_path, {}))
+    recipe["executor"] = executor or recipe.get("executor") or "ego-browser"
+    recipe = normalize_recipe(recipe)
+    run_id = "op-" + dt.datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
+    receipt = default_receipt(recipe, mode, run_id)
+    if mode == "dry_run":
+        receipt["status"] = "dry_run"
+        receipt["observations"].append({
+            "type": "planned_task_space",
+            "value": f"zhiku:{run_id}:{short_slug(recipe.get('intent'))}",
+        })
+        receipt["actions_taken"].append({
+            "type": "no_browser_action",
+            "reason": "dry-run only; static H5 never controls local browser directly",
+        })
+    else:
+        receipt = run_ego_operation(recipe, receipt)
+    receipt = redact_operation_receipt(receipt)
+    out = write_receipt(receipt)
+    print(json.dumps({
+        "ok": receipt["status"] in ("dry_run", "completed", "blocked_apply_not_implemented", "blocked_human_gate", "blocked_needs_user"),
+        "status": receipt["status"],
+        "run_id": run_id,
+        "receipt": str(out),
+        "task_space_id": receipt.get("task_space_id"),
+        "blockers": receipt.get("blockers"),
+    }, ensure_ascii=False, indent=2))
+
+
+def tokenize(q):
+    en = [w for w in re.findall(r"[a-z0-9][a-z0-9_\-.]+", q.lower()) if len(w) >= 2]
+    zh = re.sub(r"[a-zA-Z0-9_\-./]+", " ", q)
+    segs = []
+    for s in re.split(r"[^一-鿿]+", zh):
+        if not s:
+            continue
+        prev = None
+        while prev != s and s:
+            prev, s = s, STOP.sub("", s)
+        if len(s) >= 2:
+            segs.append(s)
+    grams = sorted({s[i:i + 2] for s in segs for i in range(len(s) - 1)})
+    ex = sorted({w for s in segs for k, ws in ZH2EN.items() if k in s for w in ws} - set(en))
+    return en, segs, grams, ex
+
+
+def infer_type(q):
+    """Infer component type from explicit user wording. Explicit -t still wins."""
+    ql = q.lower()
+    matches = []
+    for t, hints in TYPE_HINTS.items():
+        if any(h in ql for h in hints):
+            matches.append(t)
+    return matches[0] if matches else None
+
+
+def strip_type_terms(q):
+    """Remove explicit type words before semantic scoring so "database MCP" scores database."""
+    out = q
+    for hints in TYPE_HINTS.values():
+        for h in hints:
+            out = re.sub(re.escape(h), " ", out, flags=re.I)
+    return re.sub(r"\s+", " ", out).strip() or q
+
+
+def score_all(q, catalog, only_type=None, profiles=None, usage=None):
+    profiles = profiles or {}
+    usage = usage or {}
+    en, segs, grams, ex = tokenize(q)
+    res = []
+    for t in TYPES:
+        if only_type and t != only_type:
+            continue
+        for it in catalog.get(t, []):
+            name = (it.get("name") or "").lower()
+            suite = f"{it.get('suite_name') or ''} {it.get('suite_id') or ''}".lower()
+            cat = (it.get("category") or "").lower()
+            desc = (it.get("description") or "").lower()
+            sc, hits = 0.0, 0
+            for words, w in ((en, 1), (grams, 1), (segs, 1.5), (ex, 0.8)):
+                for tok in words:
+                    h = (
+                        (5 if tok in name else 0)
+                        + (5 if tok in suite else 0)
+                        + (2 if tok in cat else 0)
+                        + (1 if tok in desc else 0)
+                    )
+                    if h:
+                        sc += h * w
+                        hits += 1
+            if sc <= 0:
+                continue
+            sc += hits * 2
+            if it.get("mine"):
+                sc *= 1.5
+            sc += math.log10((it.get("downloads") or 0) + 1) * 0.3
+            sc += math.log10((usage.get(it.get("path")) or 0) + 1) * 0.4
+            sc += profile_bonus(profile_for(t, it, profiles))
+            res.append((sc, t, it))
+    res.sort(key=lambda x: -x[0])
+    return res
+
+
+def install_cmd(t, it):
+    if it.get("install"):
+        return str(it["install"])
+    p = re.sub(r"\.(md|json)$", "", it.get("path") or it.get("name") or "")
+    return f"npx claude-code-templates@latest {FLAGS[t]} {p} --yes"
+
+
+def use_instruction(t, it, profile=None):
+    status = ((profile or {}).get("how_to_use") or {}).get("status")
+    if it.get("mine"):
+        if status == "local_installed":
+            return "本地已装：直接按当前 Codex skill 路由调用；不输出公开安装命令"
+        return "私有共享通道：需仓库/共享权限后再安装；不输出公开安装命令"
+    return install_cmd(t, it)
+
+
+COMPONENT_ENDPOINT = os.environ.get("ZHIKU_COMPONENT_ENDPOINT", "https://os-zk.84000.art/zhiku-mcp/c/")
+
+
+def deep_record(t, it, deepmaps):
+    if it.get("mine"):
+        return None
+    record = (deepmaps.get(t) or {}).get(it.get("path"))
+    if record:
+        return record
+    try:
+        req = urllib.request.Request(
+            COMPONENT_ENDPOINT + (it.get("path") or ""),
+            headers={"User-Agent": "zhiku-cli/0.4"},
+        )
+        full = json.loads(urllib.request.urlopen(req, timeout=3).read().decode("utf-8"))
+        return full.get("deep") or None
+    except Exception:
+        return None
+
+
+def deep_text_lines(t, it, deepmaps, want_deep):
+    """深度索引输出行: 不带 --deep 时只给 mcps 附「需 env:」; 带 --deep 时全量。"""
+    if it.get("mine"):
+        return ["    深度: 私有组件无公开深度信息（安装需 yuanli-os-starter 仓权限）"] if want_deep else []
+    r = deep_record(t, it, deepmaps)
+    if not r:
+        return []
+    out = []
+    ek = r.get("env_required") or r.get("env_keys")
+    if ek and (want_deep or t == "mcps"):
+        out.append("    需 env: " + ", ".join(ek))
+    if want_deep:
+        if r.get("runner"):
+            out.append("    运行方式: " + str(r["runner"]))
+        if r.get("deps"):
+            out.append("    依赖: " + ", ".join(r["deps"]))
+        if r.get("allowed_tools"):
+            out.append("    工具: " + r["allowed_tools"])
+        if r.get("triggers"):
+            out.append("    触发: " + r["triggers"][0])
+        if r.get("usage"):
+            out.append("    用法: " + r["usage"][0])
+        if r.get("events"):
+            out.append("    事件: " + ", ".join(r["events"]))
+        if r.get("risk"):
+            out.append("    风险信号: " + ", ".join(r["risk"]))
+    return out
+
+
+def normalize_governance_aliases(args):
+    """Map human-facing governance commands onto the private control plane."""
+    if len(args) < 2:
+        return args
+    aliases = {
+        ("task", "contract"): "task-contract",
+        ("route", "plan"): "route-plan",
+        ("route", "verify"): "route-verify",
+        ("route", "human-review"): "route-human-review",
+        ("route", "human-review-record"): "route-human-review-record",
+        ("route", "human-review-import"): "route-human-review-import",
+        ("route", "shadow-record"): "route-shadow-record",
+        ("route", "shadow-status"): "route-shadow-status",
+        ("route", "shadow-readiness"): "route-shadow-readiness",
+        ("agent", "gap"): "agent-gap",
+        ("skill", "rerank"): "skill-rerank",
+        ("adapter", "audit"): "adapter-audit",
+        ("hook", "audit"): "hook-audit",
+        ("instrumentation", "audit"): "instrumentation-audit",
+        ("instrumentation", "plan"): "instrumentation-plan",
+        ("instrumentation", "activate"): "instrumentation-activate",
+        ("ecology", "report"): "ecology-report",
+    }
+    command = aliases.get((args[0], args[1]))
+    return ["skill", command, *args[2:]] if command else args
+
+
+def main():
+    args = normalize_governance_aliases(sys.argv[1:])
+    if args and args[0] == "install-suite":
+        raise SystemExit(_embedded_installer_main(args[1:]))
+    if args and args[0] == "release-suite":
+        raise SystemExit(_release_factory_main(args[1:]))
+    if args and args[0] == "telemetry":
+        core_root = private_core_root()
+        module = core_root / "systems/zhiku/telemetry/__main__.py"
+        if not module.exists():
+            sys.exit("blocked_private_control_plane_unavailable: set ZHIKU_CORE_ROOT to yuanli-os-starter")
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(core_root) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+        raise SystemExit(subprocess.call(
+            [sys.executable, "-m", "systems.zhiku.telemetry", *args[1:]],
+            cwd=str(core_root), env=env,
+        ))
+    if args and args[0] == "wechat":
+        core_root = private_core_root()
+        module = core_root / "systems/zhiku/wechat_agent/__main__.py"
+        if not module.exists():
+            sys.exit("blocked_private_control_plane_unavailable: set ZHIKU_CORE_ROOT to yuanli-os-starter")
+        env = os.environ.copy()
+        env["ZHIKU_CORE_ROOT"] = str(core_root)
+        raise SystemExit(subprocess.call(
+            [sys.executable, "-m", "systems.zhiku.wechat_agent", "--core-root", str(core_root), *args[1:]],
+            cwd=str(core_root),
+            env=env,
+        ))
+    if args and args[0] in {"skill", "use"}:
+        core_root = private_core_root()
+        governor = core_root / "systems/zhiku/forge/skill_governor.py"
+        if not governor.exists():
+            sys.exit("blocked_private_control_plane_unavailable: set ZHIKU_CORE_ROOT to yuanli-os-starter")
+        forwarded = args[1:] if args[0] == "skill" else ["install", *args[1:]]
+        telemetry_command = forwarded[0] if forwarded else "unknown"
+        telemetry_target = forwarded[1] if len(forwarded) > 1 else ""
+        write_cli_action_telemetry(telemetry_command, telemetry_target)
+        rc = subprocess.call(
+            [
+                sys.executable,
+                str(governor),
+                "--core-root",
+                str(core_root),
+                *forwarded,
+            ]
+        )
+        if (
+            rc == 0
+            and forwarded
+            and forwarded[0] == "install"
+            and len(forwarded) > 1
+            and os.environ.get("ZHIKU_INSTALL_BEACON") == "1"
+        ):
+            send_beacon(forwarded[1], [], tool="install")   # 安装成功回流（q_hash=组件名）
+        write_cli_action_telemetry(
+            telemetry_command, telemetry_target, "success" if rc == 0 else "failure"
+        )
+        raise SystemExit(rc)
+    if args and args[0] == "forge":
+        core_root = private_core_root()
+        forge = core_root / "systems/zhiku/forge/zhiku_forge.py"
+        if not forge.exists():
+            sys.exit("blocked_private_control_plane_unavailable: set ZHIKU_CORE_ROOT to yuanli-os-starter")
+        raise SystemExit(subprocess.call([sys.executable, str(forge), *args[1:]]))
+    if args and args[0] == "operate":
+        operate_main(args[1:])
+        return
+    base, only_type, top, as_json, refresh, want_deep, max_mode = BASE, None, 10, False, False, False, False
+    q = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in ("-t", "--type"):
+            only_type = args[i + 1]; i += 2
+        elif a in ("-n", "--top"):
+            top = int(args[i + 1]); i += 2
+        elif a == "--base":
+            base = args[i + 1]; i += 2
+        elif a == "--json":
+            as_json = True; i += 1
+        elif a == "--max":
+            max_mode = True; want_deep = True; i += 1
+        elif a == "--refresh":
+            refresh = True; i += 1
+        elif a in ("-d", "--deep"):
+            want_deep = True; i += 1
+        elif a in ("-h", "--help"):
+            print(__doc__); return
+        else:
+            q.append(a); i += 1
+    if not q:
+        print(__doc__); sys.exit(1)
+    if only_type and only_type not in TYPES:
+        sys.exit(f"未知类型 {only_type}，可选: {'/'.join(TYPES)}")
+    query = " ".join(q)
+    if not only_type:
+        only_type = infer_type(query)
+    score_query = strip_type_terms(query) if only_type else query
+    catalog = fetch_catalog(base, refresh)
+    profiles = load_profiles()
+    usage = fetch_usage(base, refresh)
+    hits = score_all(score_query, catalog, only_type, profiles, usage)[:top]
+    # deep 索引按需懒加载: --deep 拉命中的全部类型; 默认只拉 mcps(装前 env 需求最关键且文件最小)
+    need = {t for _, t, it in hits if not it.get("mine") and (want_deep or t == "mcps")}
+    deepmaps = {t: fetch_deep(base, t, refresh) for t in need}
+    # Evidence first: write routing receipts before presenting results so the
+    # Three Seals can honestly report per-candidate evidence backflow.
+    evolution_note = (os.environ.get("ZHIKU_EVOLUTION_NOTE") or "").strip() or None
+    receipt_paths = write_routing_receipts(query, hits, profiles, evolution_note=evolution_note)
+    # Derive the per-candidate backflow set from the receipts on disk: a
+    # canonical id counts only when its receipt file is readable, so a failed
+    # or skipped write can never masquerade as evidence.
+    receipt_ids = set()
+    for receipt_path in receipt_paths:
+        try:
+            payload = json.loads(Path(receipt_path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        canonical_id = payload.get("canonical_id")
+        if canonical_id:
+            receipt_ids.add(canonical_id)
+    search_ctx = {
+        "catalog": bool(catalog),
+        "local_profiles": any(bool(profiles.get(t)) for t in TYPES),
+    }
+    if as_json:
+        rows = []
+        for s, t, it in hits:
+            p = profile_for(t, it, profiles)
+            row = {"score": round(s, 2), "type": t, "name": it.get("name"),
+                   "category": it.get("category"), "mine": it.get("mine", 0),
+                   "description": it.get("description", ""), "install": None if it.get("mine") else install_cmd(t, it),
+                   "use": use_instruction(t, it, p)}
+            if p:
+                row["profile"] = {
+                    "status": (p.get("how_to_use") or {}).get("status"),
+                    "validation": (p.get("validation") or {}).get("state"),
+                    "usage": p.get("usage"),
+                    "risk_signals": p.get("risk_signals"),
+                    "routing_confidence": p.get("routing_confidence"),
+                    "max_recommendation_tier": p.get("max_recommendation_tier"),
+                    "governance_flags": p.get("governance_flags"),
+                }
+            if max_mode:
+                confidence = confidence_for(s, p)
+                next_step = next_step_for(t, it, p)
+                seal_ctx = {
+                    "search_performed": search_ctx,
+                    "receipts_written": receipt_ids,
+                    "canonical_id": _routing_canonical_id(t, it, profiles),
+                    "next_step": next_step,
+                }
+                row["max"] = {
+                    "confidence": confidence,
+                    "confidence_grade": confidence_grade(p),
+                    "mode": max_mode_for(t, it, p),
+                    "three_seals": three_seals_for(t, it, p, seal_ctx),
+                    "backwrite": backwrite_for(t, it, p, seal_ctx),
+                    "next_step": next_step,
+                }
+            r = deep_record(t, it, deepmaps)
+            if r:
+                row["deep"] = {k: v for k, v in r.items() if k not in ("name", "path")}
+            rows.append(row)
+        print(json.dumps(rows, ensure_ascii=False, indent=1))
+        write_component_telemetry(query, hits)
+        send_beacon(query, [it.get("path") for _, _, it in hits])
+        return
+    if not hits:
+        print("没匹配到组件——换个说法试试（中文领域词或英文关键词，如 video / wechat / database）")
+        return
+    built = (catalog.get("_meta") or {}).get("built", "?")
+    title = "随身智库-MAX" if max_mode else "随身智库 · 组件市场"
+    print(f"{title} — \"{query}\" top {len(hits)}（数据 {built}）\n")
+    for s, t, it in hits:
+        star = " ★私有(需仓权限)" if it.get("mine") else ""
+        p = profile_for(t, it, profiles)
+        status = ((p.get("how_to_use") or {}).get("status") or ("private_channel" if it.get("mine") else "remote_install"))
+        risk = p.get("risk_signals") or []
+        desc = re.sub(r"\s+", " ", it.get("description") or "").strip()[:100]
+        print(f"  {it.get('name')}  〔{t}·{it.get('category','—')}·{status}〕{star}")
+        print(f"    {desc}")
+        for ln in deep_text_lines(t, it, deepmaps, want_deep):
+            print(ln)
+        if risk:
+            print("    profile 风险: " + ", ".join(risk if isinstance(risk, list) else [str(risk)]))
+        if max_mode:
+            confidence = confidence_for(s, p)
+            grade = confidence_grade(p)
+            grade_label = "直证" if grade == "🟢" else "推断"
+            next_step = next_step_for(t, it, p)
+            seal_ctx = {
+                "search_performed": search_ctx,
+                "receipts_written": receipt_ids,
+                "canonical_id": _routing_canonical_id(t, it, profiles),
+                "next_step": next_step,
+            }
+            print(f"    MAX 置信度: {confidence:.2f} {grade}{grade_label} · 模式: {max_mode_for(t, it, p)} · tier: {p.get('max_recommendation_tier', 'unknown')}")
+            seals = three_seals_for(t, it, p, seal_ctx)
+            print("    三法印:")
+            print(f"      递归进化: [{seals['recursive_evolution']['status']}] {seals['recursive_evolution']['detail']}")
+            print(f"      技能统帅: [{seals['skill_commander']['status']}] {seals['skill_commander']['detail']}")
+            print(f"      人类友好: [{seals['human_friendliness']['status']}] {seals['human_friendliness']['detail']}")
+            print("    " + GLOBAL_OPTIMUM_ORDERING_NOTE)
+            backwrite = backwrite_for(t, it, p, seal_ctx)
+            print(f"    回流: {backwrite['target']} — {backwrite['reason']}")
+            print("    下一步: " + next_step)
+        instruction = use_instruction(t, it, p)
+        if it.get("mine"):
+            print(f"    {instruction}\n")
+        else:
+            print(f"    $ {instruction}\n")
+    write_component_telemetry(query, hits)
+    send_beacon(query, [it.get("path") for _, _, it in hits])
+
+
+if __name__ == "__main__":
+    main()
