@@ -1,0 +1,26 @@
+{
+  "as_of": "2026-09-16T00:00:00Z",
+  "canonical_commit": "8b40d0c02a9c92027fd69d0ae8745bf1afae68eb",
+  "facts": {
+    "wechat_team_pilot": {
+      "allowed_public_claims": [
+        "disabled",
+        "historical_contract_only"
+      ],
+      "authority_ref": "staging/L1/zhiku-market/SKILL.md#wechat-agent-contract",
+      "effective_date": "2026-07-21",
+      "forbidden_public_claims": [
+        "active",
+        "partial",
+        "invite_available"
+      ],
+      "forbidden_public_markers": [
+        "试点允许一位 owner 邀请最多五位只读成员",
+        "1 位所有者可邀请最多 5 位只读成员",
+        "zhiku wechat invite create --role member"
+      ],
+      "state": "disabled"
+    }
+  },
+  "schema": "zhiku_semantic_state_v1"
+}
