@@ -21,6 +21,10 @@ zhiku — 随身智库 · AI 组件市场 CLI（零依赖，python3 stdlib）
     zhiku route shadow-readiness     # 只读检查14日影子计时前置条件
     zhiku instrumentation audit      # 只读核验四客户端本地回执链
     zhiku instrumentation plan       # 生成需授权、可回滚的启用计划
+    zhiku install-suite yuanli-health --host codex --version 0.1.0
+    zhiku install-suite yuanli-health --host codex --version 0.1.0 --dry-run
+    zhiku install-suite yuanli-health --host codex --version 0.1.0 --verify-only
+    zhiku install-suite yuanli-health --host codex --rollback-version <version>
     zhiku wechat preflight           # 私有本机微信 Agent 通道预检
     zhiku wechat status              # 私有控制面状态（公开包仅安全委派）
     zhiku use <skill>                # 安装到 Codex + Claude
@@ -35,8 +39,149 @@ zhiku — 随身智库 · AI 组件市场 CLI（零依赖，python3 stdlib）
 也会自动附「需 env:」行——装前就知道要不要 API key。私有组件(★)无公开深度数据。
 """
 import datetime as dt
-import hashlib, json, math, os, re, subprocess, sys, time, urllib.error, urllib.parse, urllib.request, uuid
+import base64, hashlib, json, math, os, re, subprocess, sys, time, urllib.error, urllib.parse, urllib.request, uuid, zlib
 from pathlib import Path
+
+
+# Governed, hash-bound copy of systems/zhiku/release/install_public_suite.py.
+# Public distributions contain this CLI, so install-suite remains available
+# without a private repository checkout. The payload is static release code;
+# no manifest or downloaded archive content is ever compiled or executed.
+_EMBEDDED_INSTALLER_SHA256 = "36c43e0baf45f07906727f8b782f342b875e7826a6b7c60def15175af3ca1e72"
+_EMBEDDED_INSTALLER_B85 = (
+    'c-p-^{d3#Mt-t%P;PG|dNf$}B(_DH_Q(woII6b$?Ib%C*uZ|vvmMDuCid0F;iR1cze*pG_*bhpSlh>QMSR%1lEEbCeuvqB7zS&<_'
+    '<^FY=?<e_fu)3=kMgIG}FbrSCX*Qf@MU~8gs-9)(b&%#&9cNim2J@l}R_p65trqb5pNsUvT6~`d)rU08f@+=CNi_mIdwcV;SO!rv'
+    'U)Sq0iJ~A~u8Oh_;yf?vxK4|_+S^ml%9~YOR*Cw4^Eq9q&x^QP02S(MTBuLIRYk5o7nS-{Y9!TSU8kA;27Ri}bzIKVOas=*a>c)|'
+    '%M3akC1qKZ*0VDC*E*?cF}77)FNi+^<Sl$11aD!mZ;LAZgkJ?*eYZ;U8wGZp-wlEnz|Z&^y4>4)dGhM`-RsNf`0Z)*?)-Id6!i82'
+    '_%B@4^{N{0?-$kZ^M}z7&kha_MsZp1e@3<s<5jvZSU(g@-w#DI@tVIH-abX}5i%^?>+iie{zvqei?d&%pMJeOxquFz2HypT2Tz~L'
+    'KLl`m{^IA;zny59-}``GoxW}$e((TXo?RZl))0r!Js>YnUYxyodwz0paq_aE=-CF6-kiMo>ExUc9z?*Ey^G^lC($p*Z%(4~6L?xC'
+    'qiL~R!Ho9G@PDu3;pc<l|4iiH;pF~c@cj1=zYF_&e*-M1zz1I|Z1Uv&$o$*;)A(xmWP)FghyMhGqv7O9|4)bu2Jz<fvJF){oKNnb'
+    '9Z;_qKOaB+{`p48=g$c8#qrzYpH5$&UjDjiU_=!VqQCdQ!^Y<)e?GmqJa?Otm_YkqUk{;!;T4R8nhj};_dh%gdw=={*n050zIcMf'
+    'fY@A|y*qz#5?#DIz4S5~@X<Sk5jcG~_(6>M&!?9^zx%0`6ea36X}wrqzsL9cy(__Dz!VXi-6urW-rh8et137ZTIvEN{sfn9?|hxt'
+    '=~8^@kEyQ}KthXIG7q9M`7N2&(QLhfl@ixU^dY&cdaF1st8oA-uD+__RdQ9;<p5XhWYQ0YKL)dOS~t%G+A^uuSv|Ji!C3Df=soI9'
+    'z&;3W<7}OPLJdSW^b-F|=lC99NL2a_p^wul3I2v{#mMGiLp82yBz=4j|2zP%bt}Sj1y7L@>RA#C3R!hzF(WVXd71+UdjvlQwOP`r'
+    'e<|`rj@2bbw-UtU>*aM)j_(NtQY8Awig+dfuJ1r!sUGOdAOLlkWKDlQE(4RYBp2=a!H<Ed#~PLi3SD`ahtzvr6j25{PBOlyP8HAU'
+    '@~*)_+tCd8hD}CDdet-Lgs2$Jl4&tZdf~dB4}S;;K?o!R<zatd02kN9U7GZ0Q4}AJ{L*K(A{wG;fdk3wBWI2pXfc4~(==JtLGN9j'
+    'B2_f#ffxX?>1D#6HuKjH;tHE~=3kn_*wb0Vy?}N(K%r&{HuxZ|$ZW``Nl)-{Ky%vf+>PWJ?zm~0%&f_hLM%`#A#NlLxAPwE&tthQ'
+    'cMvaQ{>4H)qCFmVeZVV(*5LHn1yQ^M1G8cpXE3H|QO=@u9^Znsg?2z2GvzS7OGge$Ew8AG=SdWo(?xolL`ZipkC$u-Gi^2+jhZ!u'
+    'vxSfWj0FFVfb6oaK7uaph5JAeJP+T$4^cZQxbXd_g9H6!`^ZC17YrO}l{1M?fYFBCM3naxfiwqc6~)(8k*z^D5lL}=hmutz5xo%C'
+    '-iZDgArH|`mG7uEeyRFjM5mTGh0fr6nPgzoD#ka;(~&&yEZC~2u7D$+2^Ff3i=Z=v&cY~!$Gdikg02{><*4~WN&*#IhU72fJe`B('
+    'ER?AFX788-;Xp{v-6mxPZUTMV+q5en&D;hY&DUABjO*#5NBBry5U4Tu7>Mkqi*!iyKT2l_m=^V&(uJX#lNG2e+BWVrvap&il4Tr@'
+    'rD+}s(>x-|qT8ntnC9VtfzxxqIS%IG=MQ7Sk$d{{zyWcM01&-kkL7USjr_#kP2+qfCI#IgY#mB!05+Yc$;_an1B~<yBdN*K47h?#'
+    'v}WVL+I0ko%W}=BE|VLuxXQaIo-Nb5_JPcjRaV?Bf%EP=Nroh#p_BtQrWm}+U_bf@yDCf;=m<4&BVgqcl)Pb>DPbMmBz2FP_JePZ'
+    'WNV+H=2QF%39N>BGQFE-Nwbd<PPMTqaW;)@F41+_Ge`=nVqH#?NDGe8*kQkmL~FV%B$i~`YzP-?_#TzQ!iK%NO3K>=yG|>j|5cn-'
+    'v{RVPiggXPJs34v4DD?AUFanY(RH!TXK{JwlG|8oCIz=(m`E|DX_UepYH)|<846~4y~dD5M81Y>nS82~GKc+~ujmbk04B++M7BO&'
+    '#h@65Pe%tEn!vV_#9#zo$5pDjt?u%Ak<`%Pzt%A3Ihv11T9IdW0@Y3vZw#+tqtMd{TJpFVnPkc5ZNed5gXIe1A&3UgU#ehc7fLJx'
+    'a<)il(Y%*WWwTvI!n?HuLP~c!Q?4D18NH&biQK-V_Gtq^tx*;qQCCR%3>9Gw3?QYoi-W3wCGdm>bZ@8&wQ{HNN@=c?Ygbb<wn05~'
+    '(?JfOOb!`bLNC4eXlNI+ckX3s*6~&?RQES<P4_+!#*!2mBM8FvpaSpjI)2}XJlyciYcp1pMiy&f6f*FgY4r1N)0|bKc(qFM8DorZ'
+    'k~A2nj=R?lLXuc|1T)GW>!r%k8o<Vj{v+0~Hn6mRtW=Vq!_i3MvAKsjvenrIb!5fldzq}jQ>lyc4(JdNO6t{%XkBKl)HGnG80jdP'
+    'Aw&vxC%PFW&elk)N`)&e%Yu&vc51N2zQ~*qC@d0u9+TZSY>pq|8}U+80PdacfCD^!hzd(xCduOl$}#xq(DB|5bW95{Dq;7k7BRH>'
+    'GK%ov#HFadTP5DEF=V2)Y;BgMd98%=F!-Yq_A6hb3BLD)=^sOSgVr5@x!#sVjiLmmlw<qrL7)q;+u9+l0+BSXmT3j+_eN<UX_q-_'
+    'NIu`N^69;89f+rvg~0Yuu@DV+N!W#+H$|3R0~_VDhusD)u$nyA9+QZ)I8-^*^c~x%Z7Irz+_Q27zN23yy(n8#OK#AyL(^BorPhg('
+    '0FE6e9@|s3DwEr^SXYtqz6YLn-bveSf@JsBC|6}#l&Wj8!UULH;5Kc%k)Wl$jXky6y)yfRm4+t-#Fn0cS-pAWF!7`)OKP^FoQ`qk'
+    'u!|thXUy%hgV4O0*mk+w)fyc#+Br>}4#cSa_<gH@x9aciytN2~496)j6{)<=itDIIXU5SB1=i@(n75V3?jzWV4tv)jHVwky2@b5+'
+    'oWk@+NiI%6;%b_vpmU!D*WvpEgcJ~?S$czUKOLr~jS`7y!t*u>umhH9VxGduV<PKMQDhV5rWtY6=_1W$Wr7O=@$^I(8C>>RTK4*1'
+    '6v#L1hG?DR0RaWOtavJ_P9g(Ur=q7pZ;(skozDv(mmo(O#@~946m6mPYtT#U21ERc209N=Q|ugaaW#J(?i(irLJHUefiSJ2>Ta2('
+    '`G;PAN7_*;?#!6HG6{fDql@VD;^pai4|zC3PXcJRx{z|EJRmw{Ac5V7QC)|aVQ~PT8WAO$!R$l}qR(a`<DG)@x2aQSl1Vm&ou~Qi'
+    'oG|S$>7AHI7S-m7r+^R84@6yuhX)6L`2PD4xy#2E{C99r93CD53!py&d;aWMxRuKT!aQIqNOAy}OQAo5yF3!OgJ_^>8^MyhPG{gg'
+    'N)fp(W_L8AP_M|UDC>w*RiHl)k_n0-nUY%va*I&OtS3h^!1MW|EM8vEVvKT(@t>=M37hO$TCKA9E|LpK_i{BJ9!`jnya!^ShS5lf'
+    '+$Tq3B2Y9*=^CgT4GVN{P}wNOhRR0V8#OioI0~DKPz4rHQ8TUGoXFs#)^rGZ+2lh2GZ2rV4b(2FUXYgFK^0>=kL9X4KF}X&I&n0}'
+    '&I;$cs74>->;nxBUcshXd_=0MBO#n@Q(2d#Sh#dfsj)ZWJD10(h?n&^wvP7c&{JXC4-6r&&OKWcW+$#-LuXCcWNKb~4I<S%suy$='
+    '{}|FYEb1n%C1ME8LA{JA)CJ9De-u{{20}hrYSkBlP~TvKGlC1wj-w=4b>5P-(`k^@0}pbU!=nry)zL%_vptJPpSe;trjY>A9IRUT'
+    'JjVW1C!cB~>j5A1NMnHadn8Q&Gu=e)O@n~vopjGC32EUH!OimZ9!n!FMsmV%IDDUn{YUm8O-&426XtmeyH)r;7gz_uGwpI9&>w??'
+    'FX>098ZcBf4p=S82-JEC?$#K(JM3Q_PDW^2t$OA%MMxAfr1I+77^s<uhWLUT3>d*Btc*vLpCO5uXl@cU;HzDcSWI>tnF`J>(~7*9'
+    'knI(ivQ({?mFr_Py8)i9v<u&s%qlK>T;jS5oCvNVkzE81*ezMvQPzCuTed}c$i%V)`CJ>5JZ9&az;cmC$-=~8k7tkegP=Eh(hmoO'
+    '&^gnfHXUuO*5OzRm~f76%3{6hJ#8SiXj+EduWY%ZJvs_P5ly{#_vRwRoo1U7?lP<<2M=6v*s#~&>)$4BCMDOye6)xCR*kF`veNh3'
+    'U|@#Spfw++HR*+HG0YKijkCW0nB+<wkxcku4>hBx&8Eoi4ptb8+%oN;k5FYYpNJ%0{Ppzp>(O$CtD8+Ld_(7;jHh+AFA~@VaYG$z'
+    'rA&4+%&1X|u(jY&*C?X4Ate$q3>ots->b(eN5kG{sjsVMJd*)qJEiGN)aez<8>vK?8r7^B`owhvVQ9>*2f$u~qd!_CpOm@on?&n4'
+    'VV8+Co7$6!Gzjt2`ks+xBtzj_THDy5qChXn+%UN3L)VT09X0|k8jy=*Hw8@d2pIjssI-vo1vyQ=AGG!60$EcbW>D(|WA>cMF?#7L'
+    'nQSa{o}<QrLMeKEFi%ExrX7a8thCX_st}UbX_=X$;^|>LV@S1;QEeGwR{36$n@Dn{lSn28^%}6Tl)5BM2!GuFZqhBIVoXLc%d0Sq'
+    'Fq!?~42c<5jj%d1;Y|nhGJSY^7`8E)h_n@Y^KN2f`hh4FH!Tf)Eo3^Ot+>3Ig$<B;#^H?gpK);boV`;yP#lMPHt`&AiNq%kZN72)'
+    'MQBr)c>13{Kx}5mP&4McF3QHY3Jl9w#rtrjMXNHIr=LI~*y7V-nCe?x`lTT|YRQiqH_%mP<h82}P$@B=ImO)si@rXcrD(v$1eQB5'
+    'W2k1GpX7OXZ{dEp$Cdi6Z>4@ad61XXI<LG3Zp~;CSk4)4C+2gP;w~pHN~Yyl+V+$dTE}fUR&6TFXJPwzsnOY-Q;?o*K##j+=Ndpy'
+    '3TDiDFs*V0A@gs9RudVDizLqK#gL4np@Kuj*7;P|<~Ct(GG^OoGOy@Z6ngX68mlRi!Blo=XCi1zY2#;*&5fML4%Kn4t<mm@`$Qt&'
+    'mQE_r4$~(VBI*T}M`J#kz#c1+l3ymfo_bl*FTEdrCeG21O)>^9m}RSuJDR;7Ow4r|GcQMN1Hv-{|C;y>imox|<z)*YM(XB;IG9vN'
+    'j_p?$X7Du4DP2VPb$i=xvKc+78*RqL+Z}GKWGQA^;dwcDpjE;$W*A{D;pA52tf^|}1Y<e+<p&JggI54ESshXCJ#ZS9O;miKubL>l'
+    'zGD!k4`z2H3zlA#ELWJ%&0{wPZ~0bt9lrl`IDh}?hwE^c3qgvpW|p)Q!@@4;`ugb4@XsrZeWUah*S{U5#pov_=Jd>(cySDM6qY~{'
+    'MzNYXG?fU3#MB#%%j++sy?ZT}sh<RgW`qy~k7H7D=QiyaNihYGqh`uk0%5FGT)rO_E4eZ)-WarL){Mi=*Pg7IGy>E#9Y4i0H6w%I'
+    '<m{D<Su1KT<5E76;p`m(*opxy!NexiFYa|wK10vE@8(8nuFMq3NnhS!6V6hS;I*j4xT1{L$tKdr?wdW6u|UE9;NK!w=BU}ODln+g'
+    '9x~D`7++5Fc`>l>tr=Mt1#l#)($9$Yz+DrKPbWEr`>A}`b7WKJ|Npo-n{Wr2G_NZtTTMLmru1*Qh9}@h%_T+SJPey*3?bpE9-S$c'
+    '_CVW_5Mmw0vssTx1HY>zC`&6));k@#sqWj9yswXJ$1_RQ$09Cg+d4rN-qStN#t`T^gC}5&_4<$Lyu+ztGe(l>KL!V^YkDL^v#EaZ'
+    '2s(sh;u^DhXR8VG0GeKH8X2IVhZWm+G(m*a<p(ZIA#uTv;90?@BAzhKCVWPr+~~p8;n)v2>0>0{c;?beONpy5l}YG=x~h(jFp-3V'
+    'i33f^I~Mpi4ZI(Hhx@`DVH7W~)0=g%t}Iqs9-YB0FR#XvzK=DOD50VOUW(O8kFkXOpgRrFlV;&dZc6iY;=EKljZO^`)D84d`o?bH'
+    'pMRBKptr5PM~$ON=(eeoapvvYtGSU3jI$^|byn7Z)#KiyCuQrV!TX`@Lv!5JJy;e4Lk8S3|E)-K+V;L{Y2-_A6PS#I42IL2<JOd<'
+    '*geh7xVE2E;GwssxbYpVWl>1tJ32F4MPH&5h<3#avX{h5W;;p8mC|a&Kpbr?+q5dot!#9%1^4{Pi=v~({b2Q=47bCI(P7>n>Ri61'
+    '$}461^;g(p#o-Siw__E0@n-Q2ns`MuI*a~(e)h}jU%@`6Z!gYIjxW`hlYhK;ZI5LUS8-jJy`mZf;aT*{*{ieHuh0G-dc;X|^KaRY'
+    'g517_V8KkwbX5aus4aO+LYM{u=^!{Lo*x{za!76{G?~w+QG*GH{V3hcVqLG+wSP+x??xX>ECr<I#DRnkrVDV;G*Jh|AHM&dtuQxb'
+    '6zF~S?CYkuYRgVWbmlS4yW@q;LG@%A<FZ;$RO_y11hF=p+A}5A#DY}%3;Z9iGoT;=S(DM!b(yI`AZTEX@k*7Q?{3V#tT6#oZq}R|'
+    'or}MSaS$wE$$`sqbRWK}l5%)_Bg!Jk>Tlv?N!RV$KMWuGW{ASV4PQx6<acoQ(q#fdaP;(mWCh&uRgv3yxvEHxdMgwGjk8(*PMR1m'
+    'uQz&k{(4t;J5TD5MfpK;*+1KMsVKqw4uPfOV@~06T_h^BC1aiFn+zoNWD)fi1%?D^o~Kx!>1K^Jizo~zU2d9m{H{ZQ*oNZen8Wlb'
+    '>_8s2pnzAkUacrUxe0nT-MWfjO%yEHB)?5d*wrbd{m-9I|N1U^arW}$AJNZeZ%)L8LmP^}=jRKmJDCeB?|USlR^SM%K`OyzOXsq0'
+    'TKot$S`<sH;IkiuBQb7yQLCVAc#YM-Giplz$h%9$H3=THq6Z%rAO#}r6km;KL#=wkCutrVd8+tIAVTw>-iuwCmEw{8@VCu9BpYLg'
+    '36vt!=4GoCA{>@kn9Xch8QDYDMVgk>&aJt!d);iYZDZSDf;Gw0dg4%U#nZ3MN?rm=A7om-W<yVt<BTB2G1o@w9!sH~+*KA&RaP9E'
+    'QV|7I-<*>LYo5a}JWs?u8}N_Bg`;cGl1Y+-46G}xa>G*5X$Ju1E)(6cHmNj6sc>t<J#moST%PB9pS*@E8XE89GsdM&LM+5r&KbAI'
+    '&R?QEw&ypuUY?$xytq6&|CQTYrk$lh_PSea8!R<rEy)wP`HUH67DEVCzx}EgKf*BZxSVv5wOWjTLyA<-Yt~5`>F$dcfOp;wRh3gT'
+    'iGc1S&50I#RA7c6%>ldMmT7LAYux4}i_OHxJaS)4-AdE@W%vK$x>%-Dy?$LIMCU_;!`<UW%{m$iBJdzf3S0lGTQ*|Lbj%QrSe{TR'
+    'x1O57&PylrRR|x6G;s`o)xH?a$ZJZPZ8k4#@wDFolKSpjdxRheC{Zf7NpRSVO~N}{s-j5trvcSuP2;@CQ!LPkJ*fnCPe!hLTee44'
+    'HfQVQN*8BL@(Sx-(=97;jc6e5dtsqZ>G!8Op7tL-#Y<R}UT)pB)EkAAH=>K*>S(92*&S5H!X1JS++W1%*hPsow&cY&RW2KlRrt9l'
+    ';&VsyaCA?7A>0ENV}!nrSnpC86+UG*njN&Ascvy*MI>VE37tqM);qg>U#w*`&(_t#x-f*@S9kfer(p2PRMBGy8fRFI$MMdYdS*b)'
+    '{wKB33H`y%o?VTQ;G=a;Hi!&gx-lbh{Hg7WX#$+;wI?m`A{Xvkt*kawKDN_7>~e=nb<9-7!$YUq;pVhMBm&bxP_^xzjA#_1@uW}U'
+    'NvnK0X)mzhNkGJg7Sv?Wn*GB0Y-iqdNrv&axAVKVCByi!@Kk@EPN`CQo57nYG)>-&E^ABDCIy4OY_9OB<*PkaMrZ3$eUHkUOFK|<'
+    'G?3CVXyjvHi@=5|D%PwGTIXXkpIMor(8@h^%E1tmoN_Sq)J#?s!|!047$t_ygBn&LM06obA{uo;Sk|%urHAAxv1kAqser9IfEULw'
+    'o6}5+#5`?i_yB392@XGPsLZi@(T}!rAMJH)_y7!X(-mzVh089#@<qt}#jb2rZRM)GsM_jPaimmn%G<iF<kW__)S5^vna&kcHmnM}'
+    '?zgXManr3Rw;MPTvhBi^ziJfQO^jfvGlD_z*W^xqx&(%PK^gZJUN`|%XL(;)qCMfsr0SVxxw`u#Hk8lYmtG9!j@h2Yy0NjnU3R%L'
+    'wGp9F{%p%7y00Os`iddZ(O7x$ERw!V%bo9TrW|2Km(o*6f1v#^la@9kKyPhw!C?Q|ogq8qPQgkyPM#tu;#&-eR`R)RBW@A5o#7}i'
+    'P*11c+9uwLXI+f~uQ6cWA2SRv>O!uCMmvf+XkF9C4Pmivh#7UI)d2=0Ko_vj<5jhww2oQw=?f%CmyZXRPetH)09v>Tj)x#@0!2kd'
+    '9)dRD@H)@^gD{}fF-D7gY79OT1q~~C9E7FYnCYlHdf;na+(K_NXgnluGC&$!y0iYSJD533o=PX$%n{OnvP&IbHJwhpmm1AjVJG8h'
+    'X9LR57(prL1cQ~PFaW42lN=Bw2WiEyIos5OoJZBZ?;p)uaW@?sTs6RxJ_R)7GPU0A(7U3zZx6TYal%FcuoQT^Ql<eYS|*lyZWRix'
+    'Dz%G^{E%O4Cb(=u;CXm2;U9+g3g5R}w|+Z$2)`~@Jg2tm2McK2J$ac~D>?e!glM_f#GbH-s}Z@CS=9pQJMkx8rIE@3@PV;hfwBHs'
+    'xGSMq!4#gzT6Ysl%5u^R1ddsGho$((R1XgTMYOTqr`{9{jbzmy9=aCdG2r7C{DpyGW|A19@90<@FpFO?kUwxIoCNDv?`+T0zOrUz'
+    'R1B=&e!|MYhQY2J-p5$;+bnsNZz2W{VlAz{Z_Vn@AkF&{bYFuA8yD|60xw55pTj-#as(eI>u2EJ3~Fxo$jLXur8-D^sUn9jwf)25'
+    'wc=MrMu1}oIEEsYs)LPIwufn8ZNEUp|C2A8oSA_Y{57?4-?19ZE8N8g=Qlv~PnN9FWC#^Wvq&<?uB)#ikJj&}w1*tG{kjS*`tLZG'
+    '_+9e<uk(^eB^P#~!wA|#hc_5*7SF^jo(6`4@Tk5#C79W#1XAjxDjv#{0<({PQ}9_lABl39Sc!0!+>*CtG%(+@vs(HY&{4U>Ev6^i'
+    'fNs6Xi!zBQ3#szO(7l_D>=8Ohr%qbovcT(&4IfAidqNC5tRv5|k@y>G^W<a1wthS2Z^rmNJH4Dr*I;KRJ>MK!AU86Onjq)Y_Pfr3'
+    'KG^u}9P;M)&va`!0WC(0sLZm#v$ReITa6t?hZP{jdka3JhcsM1Gh12VHqo^85MVn#JFa-NA^764pjwsbHl^xOu5pHwbJxUm!?q^v'
+    'N_M-l?W%OQDPOms2i*bbAk*DqG%}q=aYJ3w-c8}}r1VLzY3EZ~Z2G)hzp+XJG%Y~gdK-jYNiq8F@7xOdXDSE{ce-e2#v#m3S{6Ok'
+    '&vt%z)xG4%$M3V*J1a!$@UiMik5C?^gYiiCuD+Fm4VK|hJ!*B0I3}D%V_NskPMoU&^5tWcxJIm&zrYdt$N0$m4&6k^Fiu!gE1ixx'
+    'IkMq~j4WSsZ7$eL)wkc{U`&iWZNn51wrRUpNJ+%(%JzE3*$dCLIb1qC;&UaWsd3yV!BN`=pdI#c!|3)bFdao03yL=>TrWrL1x~a('
+    '_0DxRg!g8E$h?Yp=(uHJcUjyH#vQC#(QczL+u99Sr*sv`<<|z0HZb(t7J923ZD4_SCCFy}rQnm=@#fh#*8{b7aGG<m5w~gP8x1!b'
+    '`?4z*wF4m=xcaY6Q+B+5C`PW#U;nLzFY$NVOtJs8pX*J*RF_e?!nAU=x_fD|vZgTf^|1c~p}fwaItxW>9B!6m9I0^4n*|;{E+}XC'
+    'g57Ntx|{0D3Sp7n4#yNts)uZ2d&!pjyTxNO_DDC`%(E_d49NGRw*KX?HOtId2EHYrGNbg*vUHC!>n4wo(QOBE-Xj{j!)|4?%{I=j'
+    'Eq$f9@@~FOSHEU=pJr!&=Fz^4JhMA;4LDkj&SbSGlr;xx-4D@rnR>i_CNS#YjqTR>58YH|aVqYNdC$h&b6fj|9C=r6Mi&`t2268$'
+    '=l6@;Lpw>LeN2bHB_ZB;^rJmLolkXjLvOwZ_wrn!_WF9=MAn{+wgW@W3rApE^mbz=%BFT!|4w_-F5x_dYJ+Et1r!C8>2T|ZUYDDN'
+    'iZ<BJ+h<tM6<*KCnp*aoY<#<8PsZAA#`*>m+?X)0FF9Hjs}@z{_dOM3H+i4j>vZ_+dY{bel+eD4y<Ppxtv=>9k8!t{LpM=s!)rI)'
+    'X?C5^_al5B)8E;8IZ6qN-`UyKm_u}6RkGi<{33hK7UTBReYr0DS^H@5(Qm>B7j?Ow)_CdaxV%{}f!A-bIC|NGIifP@BlCG*`2h2P'
+    '+?!sNWb;9=OsWbx@%>VZav3DZ_KBEgX%x#&`L8z!BXt?4Sc3BAmjB|pVOdiDsk#tNgFySLb)@QM4zTkmie|+$iu$Z67M{`c=tS>!'
+    'fZ<Rk^Q-#%%yVyPVEx3UA4pAoH)we_4rIhr8X3qW`lP^wE!2z6Ygpvj-6L9ywLQe853MnY`bgyDEs|_?q=o9@-CHW!xDi*pN{9G^'
+    ')SDX{+X}!`qKp<I6m|ab8A*(xMeym!abN8C3PGt02zb>JzssX}{atSN$gv&b(kSLwX~f=G&7bdJzj4alGBZg5Xplw-eHQMCcYyLS'
+    'b6r{z7~G$;(-lfhj`R$cV5rXKN&hP{g-yu@mMhNrqb<AeuN&Lki@+}X48lC=TpOrrf8T!kXi(n{!A8^qC9<TB2wHw=xil?A;E2mZ'
+    '+kNS_dZ>;evnoN6^J}X2V!xF)Q=5$z?|MMX{)2s8weKY5JoVh6engKU)n~rL%cN1UN=kXBTUZU9$#A+8GSbpqHa&p75LQA&{!<ju'
+    'FAPNy?u=0+3$ln6c0uHwd`dB~0`^Tn^M6k)t78'
+)
+
+
+def _embedded_installer_main(arguments):
+    try:
+        source = zlib.decompress(base64.b85decode(_EMBEDDED_INSTALLER_B85))
+    except (ValueError, zlib.error):
+        print(json.dumps({"ok": False, "status": "installer_integrity_failed"}, sort_keys=True))
+        return 2
+    if hashlib.sha256(source).hexdigest() != _EMBEDDED_INSTALLER_SHA256:
+        print(json.dumps({"ok": False, "status": "installer_integrity_failed"}, sort_keys=True))
+        return 2
+    namespace = {
+        "__name__": "zhiku_embedded_suite_installer",
+        "__file__": str(Path(__file__).resolve()),
+        "__package__": None,
+    }
+    try:
+        exec(compile(source, "<zhiku-install-suite>", "exec"), namespace)
+        entrypoint = namespace["main"]
+    except (KeyError, SyntaxError, TypeError, ValueError):
+        print(json.dumps({"ok": False, "status": "installer_integrity_failed"}, sort_keys=True))
+        return 2
+    return int(entrypoint(arguments))
+
 
 BASE = os.environ.get("ZHIKU_API_BASE", "https://os-zk.84000.art/zhiku-api")
 BEACON_URL = os.environ.get("ZHIKU_BEACON_URL", "https://os-zk.84000.art/zhiku-mcp/event")
@@ -1317,6 +1462,8 @@ def normalize_governance_aliases(args):
 
 def main():
     args = normalize_governance_aliases(sys.argv[1:])
+    if args and args[0] == "install-suite":
+        raise SystemExit(_embedded_installer_main(args[1:]))
     if args and args[0] == "telemetry":
         core_root = private_core_root()
         module = core_root / "systems/zhiku/telemetry/__main__.py"

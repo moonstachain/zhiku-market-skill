@@ -34105,15 +34105,38 @@
           "reasons": []
         },
         "metadata_contract_review": {
-          "state": "automated_risk_classified",
-          "result": "not_in_priority_cohort",
-          "checks": []
+          "state": "metadata_contract_checked",
+          "result": "pass",
+          "checks": [
+            {
+              "id": "identity_present",
+              "status": "pass",
+              "detail": "canonical_id is present"
+            },
+            {
+              "id": "description_present",
+              "status": "pass",
+              "detail": "public description is present"
+            },
+            {
+              "id": "deep_metadata_present",
+              "status": "pass",
+              "detail": "deep metadata record is available"
+            },
+            {
+              "id": "dangerous_pattern_scan",
+              "status": "pass",
+              "detail": "no dangerous pattern found in bounded metadata"
+            }
+          ]
         },
         "priority": {
-          "in_scope": false,
-          "top_100": false,
+          "in_scope": true,
+          "top_100": true,
           "high_risk": false,
-          "reasons": []
+          "reasons": [
+            "top_100_by_observed_usage_then_downloads"
+          ]
         },
         "catalog_signal": null,
         "note": "Risk classification and metadata review do not constitute [private-locator-redacted] validation.",
@@ -34180,6 +34203,7 @@
         "basis": [
           "documented_flow_or_triggers",
           "usage_evidence_observed",
+          "metadata_contract_checklist_present",
           "receipt_backed_validation"
         ],
         "standard": "soul:docs/YUANLI-SKILL-ATOMICITY-STANDARD-v1.md"
@@ -34274,15 +34298,38 @@
             "reasons": []
           },
           "metadata_contract_review": {
-            "state": "automated_risk_classified",
-            "result": "not_in_priority_cohort",
-            "checks": []
+            "state": "metadata_contract_checked",
+            "result": "pass",
+            "checks": [
+              {
+                "id": "identity_present",
+                "status": "pass",
+                "detail": "canonical_id is present"
+              },
+              {
+                "id": "description_present",
+                "status": "pass",
+                "detail": "public description is present"
+              },
+              {
+                "id": "deep_metadata_present",
+                "status": "pass",
+                "detail": "deep metadata record is available"
+              },
+              {
+                "id": "dangerous_pattern_scan",
+                "status": "pass",
+                "detail": "no dangerous pattern found in bounded metadata"
+              }
+            ]
           },
           "priority": {
-            "in_scope": false,
-            "top_100": false,
+            "in_scope": true,
+            "top_100": true,
             "high_risk": false,
-            "reasons": []
+            "reasons": [
+              "top_100_by_observed_usage_then_downloads"
+            ]
           },
           "catalog_signal": null,
           "note": "Risk classification and metadata review do not constitute [private-locator-redacted] validation.",
@@ -52853,15 +52900,38 @@
           "reasons": []
         },
         "metadata_contract_review": {
-          "state": "automated_risk_classified",
-          "result": "not_in_priority_cohort",
-          "checks": []
+          "state": "metadata_contract_checked",
+          "result": "pass",
+          "checks": [
+            {
+              "id": "identity_present",
+              "status": "pass",
+              "detail": "canonical_id is present"
+            },
+            {
+              "id": "description_present",
+              "status": "pass",
+              "detail": "public description is present"
+            },
+            {
+              "id": "deep_metadata_present",
+              "status": "pass",
+              "detail": "deep metadata record is available"
+            },
+            {
+              "id": "dangerous_pattern_scan",
+              "status": "pass",
+              "detail": "no dangerous pattern found in bounded metadata"
+            }
+          ]
         },
         "priority": {
-          "in_scope": false,
-          "top_100": false,
+          "in_scope": true,
+          "top_100": true,
           "high_risk": false,
-          "reasons": []
+          "reasons": [
+            "top_100_by_observed_usage_then_downloads"
+          ]
         },
         "catalog_signal": null,
         "note": "Risk classification and metadata review do not constitute [private-locator-redacted] validation.",
@@ -52928,6 +52998,7 @@
         "basis": [
           "documented_flow_or_triggers",
           "usage_evidence_observed",
+          "metadata_contract_checklist_present",
           "receipt_backed_validation"
         ],
         "standard": "soul:docs/YUANLI-SKILL-ATOMICITY-STANDARD-v1.md"
@@ -53022,15 +53093,38 @@
             "reasons": []
           },
           "metadata_contract_review": {
-            "state": "automated_risk_classified",
-            "result": "not_in_priority_cohort",
-            "checks": []
+            "state": "metadata_contract_checked",
+            "result": "pass",
+            "checks": [
+              {
+                "id": "identity_present",
+                "status": "pass",
+                "detail": "canonical_id is present"
+              },
+              {
+                "id": "description_present",
+                "status": "pass",
+                "detail": "public description is present"
+              },
+              {
+                "id": "deep_metadata_present",
+                "status": "pass",
+                "detail": "deep metadata record is available"
+              },
+              {
+                "id": "dangerous_pattern_scan",
+                "status": "pass",
+                "detail": "no dangerous pattern found in bounded metadata"
+              }
+            ]
           },
           "priority": {
-            "in_scope": false,
-            "top_100": false,
+            "in_scope": true,
+            "top_100": true,
             "high_risk": false,
-            "reasons": []
+            "reasons": [
+              "top_100_by_observed_usage_then_downloads"
+            ]
           },
           "catalog_signal": null,
           "note": "Risk classification and metadata review do not constitute [private-locator-redacted] validation.",

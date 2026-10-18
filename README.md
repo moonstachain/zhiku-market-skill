@@ -18,7 +18,7 @@ curl -fsSL https://os-zk.84000.art/zhiku-skill/install.sh | bash
 
 ## WeChat Agent boundary
 
-公开 CLI 带有 `zhiku wechat` 命令入口，但它只会委派给本机私有 `yuanli-os-starter` 控制面。试点允许一位 owner 邀请最多五位只读成员；扫码、邀请码、token、成员身份、会话与提醒状态始终留在 Mac，公开分发和网站只展示能力说明。
+公开 CLI 带有 `zhiku wechat` 命令入口，但它只会委派给本机私有 `yuanli-os-starter` 控制面。1+5 团队试点已取消（2026-07-21，owner 决定），当前不可邀请成员；相关契约仅作历史与安全边界说明。扫码、邀请码、token、成员身份、会话与提醒状态始终留在 Mac，公开分发和网站不承载私有运行状态。
 
 ## Source governance
 
